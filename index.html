@@ -9,6 +9,8 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
 <style>
 :root{
   --bg:#F4F9FA;
@@ -286,10 +288,26 @@ input,select,textarea{font-family:inherit;}
 <div id="app"></div>
 <div id="exportTemplate"></div>
 <script>
-/* ===================== DATA LAYER ===================== */
-const STORAGE_KEY = 'attendanceAppDB_v1';
+/* ===================== DATA LAYER (Firebase Firestore) ===================== */
+const firebaseConfig = {
+  apiKey: "AIzaSyCVCkC9hL5KVYKt7iKxalXP-KrBzW4r85w",
+  authDomain: "attendance-sheet-a2bcc.firebaseapp.com",
+  projectId: "attendance-sheet-a2bcc",
+  storageBucket: "attendance-sheet-a2bcc.firebasestorage.app",
+  messagingSenderId: "625494459651",
+  appId: "1:625494459651:web:72abf9d21ee794b01cd536",
+  measurementId: "G-HPH0BXSSV5"
+};
+firebase.initializeApp(firebaseConfig);
+const firestoreDb = firebase.firestore();
+const dbDocRef = firestoreDb.collection('attendanceApp').doc('mainDB');
+
+const STORAGE_KEY = 'attendanceAppDB_v1'; // used only as an offline fallback cache
 let longPressTimer = null;
 let longPressFired = false;
+let saveDebounceTimer = null;
+let applyingRemoteUpdate = false;
+let cloudReady = false;
 
 function uid(){ return Math.random().toString(36).slice(2,10); }
 function todayISO(){ return dateToISO(new Date()); }
@@ -308,7 +326,7 @@ function defaultDB(){
   };
 }
 
-function loadDB(){
+function loadLocalCache(){
   try{
     const raw = localStorage.getItem(STORAGE_KEY);
     if(!raw) return defaultDB();
@@ -317,9 +335,38 @@ function loadDB(){
     return parsed;
   }catch(e){ return defaultDB(); }
 }
-function saveDB(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(DB)); }
 
-let DB = loadDB();
+function saveDB(){
+  // keep an instant local cache so the app still works offline / before cloud confirms
+  try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(DB)); }catch(e){}
+  if(applyingRemoteUpdate) return; // don't write back changes that just arrived from the cloud
+  clearTimeout(saveDebounceTimer);
+  saveDebounceTimer = setTimeout(()=>{
+    dbDocRef.set(DB).catch(err=>{ console.error('Firestore save failed', err); });
+  }, 400);
+}
+
+let DB = loadLocalCache();
+
+/* Listen for changes from Firestore (this device and any other device/browser).
+   Renders live whenever the shared data changes. */
+dbDocRef.onSnapshot((snap)=>{
+  if(snap.exists){
+    applyingRemoteUpdate = true;
+    DB = snap.data();
+    try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(DB)); }catch(e){}
+    applyingRemoteUpdate = false;
+  } else if(!cloudReady){
+    // first run: no cloud document yet, create it from local cache (or defaults)
+    dbDocRef.set(DB).catch(err=>console.error('Firestore init failed', err));
+  }
+  cloudReady = true;
+  render();
+}, (err)=>{
+  console.error('Firestore listen failed, staying on local data', err);
+  cloudReady = true;
+  render();
+});
 let UI = {
   tab:'attendance',
   date: todayISO(),
