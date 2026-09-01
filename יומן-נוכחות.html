@@ -1,0 +1,1851 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>יומן נוכחות</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Rubik:wght@500;600;700&family=Assistant:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root{
+  --bg:#F4F9FA;
+  --surface:#FFFFFF;
+  --surface-alt:#EAF4F6;
+  --primary:#2E7D96;
+  --primary-dark:#215A6C;
+  --primary-light:#6FB3C4;
+  --primary-pale:#DCEFF2;
+  --text:#1F2D3A;
+  --text-muted:#728290;
+  --success:#4CAF80;
+  --success-pale:#E4F5EC;
+  --warning:#E8A33D;
+  --warning-pale:#FBF0DE;
+  --danger:#E1615A;
+  --danger-pale:#FBE7E6;
+  --border:#E1E9EC;
+  --radius:16px;
+  --radius-sm:10px;
+  --shadow:0 2px 12px rgba(31,45,58,0.07);
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;}
+body{
+  background:var(--bg);
+  color:var(--text);
+  font-family:'Assistant',sans-serif;
+  min-height:100vh;
+  padding-bottom:40px;
+}
+h1,h2,h3,.display{font-family:'Rubik',sans-serif;}
+button{font-family:inherit;cursor:pointer;}
+input,select,textarea{font-family:inherit;}
+#app{max-width:900px;margin:0 auto;padding:14px;}
+
+/* Header */
+.app-header{
+  background:linear-gradient(135deg,#2E7D96 0%,#245F79 55%,#1B4A5F 100%);
+  color:#fff;border-radius:18px;padding:20px 20px 18px;
+  box-shadow:0 10px 28px rgba(33,90,108,0.35);
+  margin-bottom:16px;position:relative;overflow:hidden;
+}
+.app-header::before{content:'';position:absolute;top:-50px;left:-50px;width:160px;height:160px;
+  background:radial-gradient(circle,rgba(255,255,255,0.14) 0%,rgba(255,255,255,0) 70%);border-radius:50%;pointer-events:none;}
+.app-header::after{content:'';position:absolute;bottom:-60px;right:-30px;width:150px;height:150px;
+  background:radial-gradient(circle,rgba(255,255,255,0.08) 0%,rgba(255,255,255,0) 70%);border-radius:50%;pointer-events:none;}
+.app-header h1{margin:0 0 14px;font-size:20px;font-weight:700;display:flex;align-items:center;gap:8px;
+  position:relative;letter-spacing:.2px;text-shadow:0 2px 6px rgba(0,0,0,0.15);}
+.settings-gear{position:absolute;top:14px;left:14px;background:rgba(255,255,255,0.25);border:none;
+  color:#fff;width:42px;height:42px;border-radius:12px;font-size:19px;display:flex;align-items:center;
+  justify-content:center;transition:background .15s;z-index:5;}
+.settings-gear:active{background:rgba(255,255,255,0.4);}
+.class-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
+.class-select{
+  background:rgba(255,255,255,0.18);color:#fff;border:1px solid rgba(255,255,255,0.35);
+  border-radius:var(--radius-sm);padding:7px 10px;font-size:14px;font-weight:600;flex:1;min-width:120px;
+}
+.class-select option{color:#1F2D3A;}
+.date-nav{display:flex;align-items:center;gap:6px;margin-top:10px;background:rgba(255,255,255,0.14);
+  border-radius:var(--radius-sm);padding:8px 10px;}
+.date-nav button{background:rgba(255,255,255,0.22);border:none;color:#fff;width:32px;height:32px;
+  border-radius:8px;font-size:16px;display:flex;align-items:center;justify-content:center;transition:background .15s;}
+.date-nav button:active{background:rgba(255,255,255,0.35);}
+.date-info{flex:1;text-align:center;}
+.date-info .greg{font-size:13px;opacity:0.85;}
+.date-info .heb{font-size:15px;font-weight:700;font-family:'Rubik',sans-serif;}
+.date-picker-input{background:rgba(255,255,255,0.18);color:#fff;border:1px solid rgba(255,255,255,0.35);
+  border-radius:8px;padding:5px 6px;font-size:12px;}
+
+/* Tabs */
+.tabs{display:flex;gap:6px;margin-bottom:16px;background:var(--surface);border-radius:18px;
+  padding:6px;box-shadow:var(--shadow);}
+.tab-btn{flex:1;border:none;background:transparent;padding:11px 4px;border-radius:13px;
+  font-size:13px;font-weight:700;color:var(--text-muted);transition:all .18s;}
+.tab-btn.active{background:linear-gradient(135deg,var(--primary) 0%,var(--primary-dark) 100%);
+  color:#fff;box-shadow:0 4px 12px rgba(46,125,150,0.4);}
+
+.card{background:var(--surface);border-radius:16px;box-shadow:var(--shadow);padding:18px;
+  margin-bottom:16px;border:1px solid rgba(225,233,236,0.6);position:relative;overflow:hidden;}
+.card::before{content:'';position:absolute;top:0;right:0;left:0;height:3px;
+  background:linear-gradient(90deg,var(--primary-light) 0%,var(--primary) 50%,var(--primary-dark) 100%);}
+.card h2{font-size:16.5px;margin:0 0 14px;color:var(--primary-dark);display:flex;align-items:center;gap:9px;
+  font-weight:700;}
+.card h3{font-size:14px;margin:0 0 10px;color:var(--text);font-weight:700;}
+.section-icon{width:30px;height:30px;border-radius:10px;display:flex;align-items:center;justify-content:center;
+  font-size:15px;flex-shrink:0;}
+.section-icon.teal{background:linear-gradient(135deg,var(--primary-light) 0%,var(--primary) 100%);}
+.section-icon.amber{background:linear-gradient(135deg,#F3C165 0%,#DA9A2E 100%);}
+.section-icon.indigo{background:linear-gradient(135deg,#8B7FD6 0%,#6A5ACD 100%);}
+.section-icon.slate{background:linear-gradient(135deg,#93A5B1 0%,#6E828F 100%);}
+
+.non-school-banner{
+  background:var(--warning-pale);border:1px solid var(--warning);color:#8a5a17;
+  border-radius:var(--radius);padding:16px;text-align:center;font-weight:600;margin-bottom:14px;
+}
+.non-school-banner button{margin-top:10px;background:var(--surface);border:1px solid var(--warning);
+  color:#8a5a17;border-radius:8px;padding:7px 14px;font-size:13px;font-weight:600;}
+
+/* Attendance table */
+.att-table{width:100%;border-collapse:separate;border-spacing:0 9px;}
+.att-row{background:var(--surface-alt);}
+.att-row td:first-child{border-radius:12px 0 0 12px;}
+.att-row td:last-child{border-radius:0 12px 12px 0;}
+.att-name-cell{padding:9px 6px;font-weight:700;font-size:13px;max-width:74px;
+  overflow-wrap:break-word;}
+.att-lesson-header{padding:2px 4px 6px;text-align:center;font-weight:700;color:var(--text-muted);
+  font-size:11px;min-width:78px;}
+.mark-all-btn{border:none;background:var(--surface-alt);color:var(--primary);border-radius:20px;padding:3px 9px;
+  font-size:9.5px;font-weight:700;white-space:nowrap;}
+.mark-all-btn.on{background:var(--success-pale);color:#1e7a4c;}
+.day-lock-btn{border:none;background:var(--surface-alt);color:var(--text-muted);border-radius:20px;
+  padding:5px 11px;font-size:11px;font-weight:700;flex-shrink:0;}
+.day-lock-btn.locked{background:var(--warning-pale);color:#8a5a17;}
+.mini-share-icon-inset{position:absolute;top:50%;transform:translateY(-50%);width:24px;height:24px;
+  border:none;background:rgba(0,0,0,0.07);color:var(--text-muted);border-radius:7px;font-size:11px;
+  display:flex;align-items:center;justify-content:center;padding:0;opacity:0.65;}
+.mini-share-icon-inset:active{opacity:1;}
+.mini-share-icon-inset.left{left:8px;}
+.mini-share-icon-inset.right{right:8px;}
+.mini-share-icon{width:34px;flex-shrink:0;border:none;background:var(--surface-alt);color:var(--text-muted);
+  border-radius:10px;font-size:13px;opacity:0.5;transition:opacity .15s;}
+.mini-share-icon:active{opacity:1;}
+.locked-table .arrived-btn,.locked-table .mini-icon-btn,.locked-table .mark-all-btn{opacity:0.5;}
+.lesson-block{padding:6px 4px;text-align:center;min-width:78px;}
+.check-row{display:flex;gap:5px;justify-content:center;flex-wrap:wrap;}
+.arrived-btn{width:100%;border:2px solid var(--border);background:#fff;border-radius:12px;padding:9px 0;
+  font-size:12.5px;font-weight:800;color:var(--text-muted);transition:all .15s;}
+.arrived-btn:active{transform:scale(0.96);}
+.arrived-btn.on{background:linear-gradient(135deg,var(--success) 0%,#3d9d6c 100%);
+  border-color:var(--success);color:#fff;box-shadow:0 4px 10px rgba(76,175,128,0.4);}
+.mini-icon-row{display:flex;gap:5px;justify-content:center;margin-top:6px;}
+.mini-icon-btn{width:28px;height:28px;border-radius:9px;border:1.5px solid var(--border);background:#fff;
+  font-size:13px;display:flex;align-items:center;justify-content:center;color:var(--text-muted);
+  position:relative;transition:all .15s;}
+.mini-icon-btn:active{transform:scale(0.92);}
+.mini-icon-btn.on-late{background:var(--warning);border-color:var(--warning);}
+.mini-icon-btn.on-note{background:var(--primary-pale);border-color:var(--primary-light);}
+.mini-icon-btn .note-dot{position:absolute;top:-3px;left:-3px;margin:0;}
+.minutes-select{margin-top:5px;width:100%;border:1px solid var(--border);border-radius:7px;padding:3px 2px;
+  font-size:11px;background:var(--warning-pale);color:#8a5a17;font-weight:700;}
+.note-toggle{margin-top:6px;font-size:11px;background:none;border:none;color:var(--primary);
+  font-weight:700;text-decoration:underline;padding:2px;}
+.note-toggle.has-note{color:var(--primary-dark);}
+.note-dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-left:4px;vertical-align:middle;}
+.note-dot.good{background:var(--success);}
+.note-dot.neutral{background:#9aa7b0;}
+.note-dot.bad{background:var(--danger);}
+.note-editor{margin-top:8px;background:#fff;border:1px solid var(--border);border-radius:10px;padding:8px;
+  text-align:right;}
+.note-type-row{display:flex;gap:4px;margin-bottom:6px;}
+.note-type-btn{flex:1;border:1.5px solid var(--border);background:#fff;border-radius:7px;padding:5px 2px;
+  font-size:11px;font-weight:700;}
+.note-type-btn.good.selected{background:var(--success-pale);border-color:var(--success);color:#1e7a4c;}
+.note-type-btn.neutral.selected{background:#eef1f2;border-color:#9aa7b0;color:#51606a;}
+.note-type-btn.bad.selected{background:var(--danger-pale);border-color:var(--danger);color:#a3312c;}
+.note-textarea{width:100%;border:1px solid var(--border);border-radius:7px;padding:6px;font-size:12px;
+  resize:vertical;min-height:44px;font-family:inherit;}
+.note-save-btn{margin-top:6px;background:var(--primary);color:#fff;border:none;border-radius:7px;
+  padding:6px 10px;font-size:12px;font-weight:700;}
+
+/* Buttons general */
+.btn-primary{background:linear-gradient(135deg,var(--primary) 0%,var(--primary-dark) 100%);color:#fff;
+  border:none;border-radius:14px;padding:10px 18px;font-size:14px;font-weight:700;
+  transition:transform .1s,box-shadow .15s;box-shadow:0 4px 12px rgba(46,125,150,0.32);}
+.btn-primary:active{transform:scale(0.96);}
+.btn-secondary{background:var(--surface-alt);color:var(--primary-dark);border:1px solid var(--primary-pale);
+  border-radius:14px;padding:10px 18px;font-size:14px;font-weight:700;transition:transform .1s,background .15s;}
+.btn-secondary:active{transform:scale(0.96);background:var(--primary-pale);}
+.btn-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;}
+.input-line{width:100%;border:1.5px solid var(--border);border-radius:14px;padding:10px 12px;
+  font-size:14px;margin-bottom:9px;transition:border-color .15s,box-shadow .15s;}
+.input-line:focus{outline:none;border-color:var(--primary-light);box-shadow:0 0 0 3px var(--primary-pale);}
+
+/* Students settings list */
+.student-row{display:flex;align-items:center;justify-content:space-between;padding:9px 4px;
+  border-bottom:1px solid var(--border);}
+.student-row:last-child{border-bottom:none;}
+.remove-btn{background:none;border:none;color:#c7cdd2;font-size:16px;padding:4px 8px;}
+.remove-btn.confirming{color:var(--danger);font-weight:700;font-size:11px;background:var(--danger-pale);
+  border-radius:6px;padding:4px 8px;}
+
+/* Grades */
+.exam-list{display:flex;flex-direction:column;gap:7px;margin-bottom:12px;}
+.exam-item{display:flex;justify-content:space-between;align-items:center;background:var(--surface-alt);
+  border-radius:14px;padding:11px 14px;font-size:13px;font-weight:700;cursor:pointer;user-select:none;
+  -webkit-user-select:none;-webkit-touch-callout:none;touch-action:manipulation;
+  transition:background .15s,transform .1s;border:1px solid transparent;}
+.exam-item:active{transform:scale(0.98);}
+.exam-item.active{background:var(--primary-pale);border-color:var(--primary-light);}
+.exam-item .exam-hint{font-size:10px;color:var(--text-muted);font-weight:500;}
+.score-row{display:flex;align-items:center;justify-content:space-between;padding:7px 2px;
+  border-bottom:1px solid var(--border);gap:6px;}
+.score-row span{flex:1;overflow-wrap:break-word;}
+.score-input{width:56px;border:1px solid var(--border);border-radius:7px;padding:5px;text-align:center;font-size:13px;}
+.effort-input{width:64px;border:1px solid var(--border);border-radius:7px;padding:5px;text-align:center;font-size:13px;}
+
+/* Summary */
+.summary-toggle{display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap;}
+.summary-toggle button{flex:1;min-width:70px;padding:9px;border-radius:13px;border:1.5px solid var(--border);
+  background:#fff;font-size:13px;font-weight:700;color:var(--text-muted);transition:all .15s;}
+.summary-toggle button.active{background:linear-gradient(135deg,var(--primary) 0%,var(--primary-dark) 100%);
+  color:#fff;border-color:var(--primary);box-shadow:0 3px 8px rgba(46,125,150,0.3);}
+.summary-table{width:100%;border-collapse:collapse;font-size:12.5px;}
+.summary-table th{background:var(--surface-alt);padding:7px 4px;font-size:11px;color:var(--text-muted);}
+.summary-table td{padding:7px 4px;text-align:center;border-bottom:1px solid var(--border);}
+.summary-table td:first-child,.summary-table th:first-child{text-align:right;font-weight:700;}
+.summary-table .note-badge{cursor:pointer;padding:2px 3px;border-radius:5px;}
+.missing-exam-badge{cursor:pointer;background:var(--warning-pale);color:#8a5a17;padding:3px 7px;
+  border-radius:8px;font-size:11px;font-weight:700;user-select:none;-webkit-user-select:none;
+  -webkit-touch-callout:none;touch-action:manipulation;display:inline-block;}
+.summary-table .note-badge:active{background:var(--primary-pale);}
+.pct-bar{background:var(--border);border-radius:5px;height:6px;width:100%;overflow:hidden;margin-top:3px;}
+.pct-fill{background:var(--primary);height:100%;}
+
+/* daily review */
+.daily-review-row{background:var(--surface-alt);border-radius:14px;padding:11px 13px;margin-bottom:9px;
+  border:1px solid rgba(111,179,196,0.15);}
+.drr-head{display:flex;align-items:center;gap:8px;margin-bottom:7px;}
+.drr-avatar{width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,var(--primary) 0%,var(--primary-dark) 100%);
+  color:#fff;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;
+  box-shadow:0 2px 6px rgba(46,125,150,0.3);}
+.drr-name{font-weight:700;font-size:14px;}
+.drr-lesson{font-size:12px;color:var(--text-muted);margin-bottom:3px;}
+.drr-lesson b{color:var(--text);}
+.drr-note{margin-top:4px;padding:6px 9px;border-radius:9px;font-size:12px;}
+.drr-note.good{background:var(--success-pale);color:#1e7a4c;}
+.drr-note.neutral{background:#eef1f2;color:#51606a;}
+.drr-note.bad{background:var(--danger-pale);color:#a3312c;}
+
+/* student avatar in name cell */
+.name-with-avatar{display:flex;align-items:center;gap:6px;}
+.mini-avatar{width:23px;height:23px;border-radius:50%;background:linear-gradient(135deg,var(--primary-light) 0%,var(--primary) 100%);
+  color:#fff;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+
+/* empty state */
+.empty-state{text-align:center;color:var(--text-muted);padding:30px 10px;font-size:14px;}
+.empty-state::before{content:'📭';display:block;font-size:32px;margin-bottom:8px;opacity:0.6;}
+
+/* export template (offscreen) */
+#exportTemplate{position:fixed;top:-9999px;right:-9999px;width:520px;background:#fff;padding:22px;
+  font-family:'Assistant',sans-serif;direction:rtl;}
+#exportTemplate h2{font-family:'Rubik',sans-serif;color:var(--primary-dark);margin:0 0 4px;font-size:18px;}
+#exportTemplate .sub{color:var(--text-muted);font-size:12px;margin-bottom:14px;}
+#exportTemplate table{width:100%;border-collapse:collapse;font-size:12px;}
+#exportTemplate th{background:var(--primary-pale);padding:6px;font-size:11px;color:var(--primary-dark);}
+#exportTemplate td{padding:6px;border-bottom:1px solid var(--border);text-align:center;}
+#exportTemplate td:first-child,#exportTemplate th:first-child{text-align:right;font-weight:700;}
+
+.toast{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:var(--text);color:#fff;
+  padding:10px 18px;border-radius:20px;font-size:13px;z-index:999;box-shadow:0 4px 14px rgba(0,0,0,0.2);
+  max-width:85vw;text-align:center;}
+
+.modal-bg{position:fixed;inset:0;background:rgba(20,35,45,0.55);display:flex;align-items:center;
+  justify-content:center;z-index:900;padding:20px;animation:fadeIn .18s ease;backdrop-filter:blur(2px);}
+.modal-bg.top{z-index:960;}
+@keyframes fadeIn{from{opacity:0;}to{opacity:1;}}
+@keyframes slideUp{from{opacity:0;transform:translateY(16px);}to{opacity:1;transform:translateY(0);}}
+.modal-box{background:#fff;border-radius:18px;padding:20px;max-width:360px;width:100%;
+  box-shadow:0 16px 48px rgba(20,35,45,0.3);animation:slideUp .2s ease;}
+.modal-box h3{margin:0 0 12px;color:var(--primary-dark);font-weight:700;}
+
+.settings-overlay{position:fixed;inset:0;background:var(--bg);z-index:800;overflow-y:auto;padding:16px;}
+
+/* hebrew calendar picker */
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:5px;}
+.cal-weekday{text-align:center;font-size:11px;font-weight:700;color:var(--text-muted);padding:4px 0;}
+.cal-day{background:var(--surface-alt);border:none;border-radius:9px;padding:9px 0;font-size:13px;
+  font-weight:700;color:var(--text);transition:all .12s;}
+.cal-day.today{box-shadow:inset 0 0 0 2px var(--primary-light);}
+.cal-day.selected{background:var(--primary);color:#fff;box-shadow:0 3px 8px rgba(46,125,150,0.4);}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="exportTemplate"></div>
+<script>
+/* ===================== DATA LAYER ===================== */
+const STORAGE_KEY = 'attendanceAppDB_v1';
+let longPressTimer = null;
+let longPressFired = false;
+
+function uid(){ return Math.random().toString(36).slice(2,10); }
+function todayISO(){ return dateToISO(new Date()); }
+function dateToISO(d){
+  const y=d.getFullYear(), m=String(d.getMonth()+1).padStart(2,'0'), day=String(d.getDate()).padStart(2,'0');
+  return `${y}-${m}-${day}`;
+}
+function isoToDate(iso){ const [y,m,d]=iso.split('-').map(Number); return new Date(y,m-1,d); }
+function addDaysISO(iso,n){ const d=isoToDate(iso); d.setDate(d.getDate()+n); return dateToISO(d); }
+
+function defaultDB(){
+  return {
+    activeClassId: null,
+    classes: {},
+    holidaysCache: {}
+  };
+}
+
+function loadDB(){
+  try{
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if(!raw) return defaultDB();
+    const parsed = JSON.parse(raw);
+    if(!parsed.classes) return defaultDB();
+    return parsed;
+  }catch(e){ return defaultDB(); }
+}
+function saveDB(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(DB)); }
+
+let DB = loadDB();
+let UI = {
+  tab:'attendance',
+  date: todayISO(),
+  summaryMode:'week',
+  summaryRef: todayISO(),
+  openNote: null,
+  confirmRemoveStudent: null,
+  activeExamId: null,
+  showSettings: false,
+  classDraft: null,
+  examDraft: null,
+  detailModal: null,
+  shareMenu: null
+};
+
+function getClass(){ return DB.classes[DB.activeClassId] || null; }
+function hasAnyClass(){ return Object.keys(DB.classes).length > 0; }
+function lessonsList(){ const cls=getClass(); return (cls && cls.lessonsPerDay===1) ? ['l1'] : ['l1','l2']; }
+function lessonLabel(lesson){ return lesson==='l1' ? 'שיעור ראשון' : 'שיעור שני'; }
+
+/* ===================== HEBREW CALENDAR / HOLIDAYS ===================== */
+function gematria(num){
+  if(!num || num<=0) return String(num);
+  const hundreds = ['','ק','ר','ש','ת','תק','תר','תש','תת','תתק'];
+  const tens = ['','י','כ','ל','מ','נ','ס','ע','פ','צ'];
+  const ones = ['','א','ב','ג','ד','ה','ו','ז','ח','ט'];
+  let n = num;
+  const h = Math.floor(n/100); n%=100;
+  const t = Math.floor(n/10); const o = n%10;
+  let letters = hundreds[h] || '';
+  if(t===1 && o===5){ letters += 'טו'; }
+  else if(t===1 && o===6){ letters += 'טז'; }
+  else { letters += (tens[t]||'') + (ones[o]||''); }
+  if(!letters) return '';
+  if(letters.length>1) letters = letters.slice(0,-1) + '״' + letters.slice(-1);
+  else letters += '׳';
+  return letters;
+}
+function hebDayNumeric(date){
+  const fmt = new Intl.DateTimeFormat('he-IL-u-ca-hebrew-nu-latn',{day:'numeric'});
+  return Number(fmt.format(date));
+}
+function hebYearNumeric(date){
+  const fmt = new Intl.DateTimeFormat('he-IL-u-ca-hebrew-nu-latn',{year:'numeric'});
+  return Number(fmt.format(date));
+}
+function hebMonthNameOnly(date){
+  return new Intl.DateTimeFormat('he-IL-u-ca-hebrew',{month:'long'}).format(date);
+}
+function hebDayLabel(date){ return gematria(hebDayNumeric(date)); }
+function hebrewDateStr(date){
+  try{
+    const day = gematria(hebDayNumeric(date));
+    const month = hebMonthNameOnly(date);
+    const year = gematria(hebYearNumeric(date) % 1000);
+    return `${day} ב${month} ${year}`;
+  }catch(e){ return ''; }
+}
+function isShabbat(date){ return date.getDay()===6; }
+
+async function ensureHolidaysLoaded(year){
+  if(DB.holidaysCache[year]) return DB.holidaysCache[year];
+  try{
+    const res = await fetch(`https://www.hebcal.com/hebcal?cfg=json&maj=on&min=on&year=${year}&month=x&geo=none`);
+    const data = await res.json();
+    const dates = (data.items||[])
+      .filter(it => it.category==='holiday')
+      .map(it => (it.date||'').slice(0,10))
+      .filter(Boolean);
+    DB.holidaysCache[year] = dates;
+    saveDB();
+    return dates;
+  }catch(e){
+    DB.holidaysCache[year] = DB.holidaysCache[year] || [];
+    return DB.holidaysCache[year];
+  }
+}
+function getHolidayNameSync(iso){
+  const year = Number(iso.slice(0,4));
+  const list = DB.holidaysCache[year] || [];
+  return list.includes(iso);
+}
+function isNonSchoolDay(iso){
+  const cls = getClass();
+  const override = cls.dayOverrides[iso];
+  if(override==='school') return false;
+  if(override==='off') return true;
+  const d = isoToDate(iso);
+  if(isShabbat(d)) return true;
+  if(getHolidayNameSync(iso)) return true;
+  return false;
+}
+
+/* ===================== ATTENDANCE HELPERS ===================== */
+function getDayRecord(iso){
+  const cls = getClass();
+  if(!cls.attendance[iso]) cls.attendance[iso] = {};
+  return cls.attendance[iso];
+}
+function blankEntry(){ return {arrived:false,late:false,minutesLate:null,noteType:null,noteText:''}; }
+function normalizeEntry(raw){
+  if(!raw) return blankEntry();
+  if(raw.arrived!==undefined){
+    return {
+      arrived: !!raw.arrived,
+      late: !!raw.late,
+      minutesLate: raw.minutesLate!=null ? raw.minutesLate : null,
+      noteType: raw.noteType || null,
+      noteText: raw.noteText || ''
+    };
+  }
+  if(raw.status!==undefined){
+    return {
+      arrived: raw.status==='present' || raw.status==='late',
+      late: raw.status==='late',
+      minutesLate: raw.status==='late' ? (raw.minutesLate||10) : null,
+      noteType: raw.noteType || null,
+      noteText: raw.noteText || ''
+    };
+  }
+  return {arrived:false, late:false, minutesLate:null, noteType:raw.noteType||null, noteText:raw.noteText||''};
+}
+function getEntry(iso, studentId, lesson){
+  const day = getDayRecord(iso);
+  if(!day[studentId]) day[studentId] = {l1:blankEntry(), l2:blankEntry()};
+  if(!day[studentId][lesson]) day[studentId][lesson] = blankEntry();
+  const e = day[studentId][lesson];
+  if(e.status!==undefined && e.arrived===undefined){
+    e.arrived = e.status==='present' || e.status==='late';
+    e.late = e.status==='late';
+    e.minutesLate = e.late ? 10 : null;
+    delete e.status;
+  }
+  if(e.arrived===undefined) e.arrived=false;
+  if(e.late===undefined) e.late=false;
+  if(e.minutesLate===undefined) e.minutesLate=null;
+  return e;
+}
+function isDayLocked(iso){ const cls=getClass(); return !!(cls.locks && cls.locks[iso]); }
+function toggleDayLock(){
+  const cls = getClass();
+  if(!cls.locks) cls.locks={};
+  cls.locks[UI.date] = !cls.locks[UI.date];
+  saveDB(); render();
+}
+function toggleArrived(studentId, lesson){
+  if(isDayLocked(UI.date)){ showToast('הרישום נעול - לחץ "ערוך" כדי לשנות'); return; }
+  const entry = getEntry(UI.date, studentId, lesson);
+  entry.arrived = !entry.arrived;
+  if(!entry.arrived){ entry.late=false; entry.minutesLate=null; }
+  saveDB(); render();
+}
+function toggleLate(studentId, lesson){
+  if(isDayLocked(UI.date)){ showToast('הרישום נעול - לחץ "ערוך" כדי לשנות'); return; }
+  const entry = getEntry(UI.date, studentId, lesson);
+  entry.late = !entry.late;
+  if(entry.late){ entry.arrived = true; if(!entry.minutesLate) entry.minutesLate = 3; }
+  saveDB(); render();
+}
+function setMinutesLate(studentId, lesson, val){
+  if(isDayLocked(UI.date)){ showToast('הרישום נעול - לחץ "ערוך" כדי לשנות'); return; }
+  const entry = getEntry(UI.date, studentId, lesson);
+  entry.minutesLate = Number(val);
+  saveDB();
+}
+function attendanceLabel(e){
+  if(!e || !e.arrived) return 'לא הגיע';
+  if(e.late) return `איחר (${e.minutesLate||'?'} דק')`;
+  return 'הגיע';
+}
+function noteIcon(type){ return type==='good'?'🟢':type==='bad'?'🔴':'⚪'; }
+function noteLabel(type){ return type==='good'?'טובה':type==='bad'?'רעה':'הערה'; }
+function noteTypeTitle(type){ return type==='good'?'טובות':type==='bad'?'רעות':'הערה'; }
+
+function toggleNote(studentId, lesson){
+  if(isDayLocked(UI.date)){ showToast('הרישום נעול - לחץ "ערוך" כדי לשנות'); return; }
+  if(UI.openNote && UI.openNote.studentId===studentId && UI.openNote.lesson===lesson){
+    UI.openNote = null;
+  } else {
+    UI.openNote = {studentId, lesson};
+  }
+  render();
+}
+function setNoteType(studentId, lesson, type){
+  const entry = getEntry(UI.date, studentId, lesson);
+  entry.noteType = type;
+  saveDB();
+  render();
+  const ta = document.getElementById(`noteText_${studentId}_${lesson}`);
+  if(ta) ta.focus();
+}
+function submitNote(studentId, lesson){
+  const ta = document.getElementById(`noteText_${studentId}_${lesson}`);
+  const entry = getEntry(UI.date, studentId, lesson);
+  entry.noteType = entry.noteType || 'neutral';
+  entry.noteText = ta ? ta.value : '';
+  saveDB();
+  UI.openNote = null;
+  render();
+}
+function clearNote(iso, studentId, lesson){
+  if(isDayLocked(iso)){ showToast('הרישום נעול - לחץ "ערוך" כדי לשנות'); return; }
+  const entry = getEntry(iso, studentId, lesson);
+  entry.noteType = null;
+  entry.noteText = '';
+  saveDB(); render();
+}
+function clearNoteAttendance(studentId, lesson){
+  UI.openNote = null;
+  clearNote(UI.date, studentId, lesson);
+}
+function overrideDay(mode){
+  const cls = getClass();
+  cls.dayOverrides[UI.date] = mode;
+  saveDB(); render();
+}
+function clearOverride(){
+  const cls = getClass();
+  delete cls.dayOverrides[UI.date];
+  saveDB(); render();
+}
+
+/* ===================== CLIPBOARD / TOAST ===================== */
+function showToast(msg){
+  let el = document.querySelector('.toast');
+  if(el) el.remove();
+  el = document.createElement('div');
+  el.className='toast';
+  el.textContent = msg;
+  document.body.appendChild(el);
+  setTimeout(()=>el.remove(), 2600);
+}
+async function copyText(text){
+  try{
+    await navigator.clipboard.writeText(text);
+    showToast('הועתק! אפשר להדביק בוואטסאפ');
+    return;
+  }catch(e){}
+  try{
+    const ta = document.createElement('textarea');
+    ta.value = text; ta.style.position='fixed'; ta.style.opacity='0';
+    document.body.appendChild(ta); ta.focus(); ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    showToast('הועתק! אפשר להדביק בוואטסאפ');
+  }catch(e2){
+    showToast('לא הצלחתי להעתיק אוטומטית');
+  }
+}
+
+/* ===================== RENDER ROOT ===================== */
+function render(){
+  const app = document.getElementById('app');
+  if(!hasAnyClass()){
+    app.innerHTML = renderEmptyStateScreen() + renderAddClassModal() + renderSettingsOverlay();
+    attachGlobalHandlers();
+    return;
+  }
+  app.innerHTML = renderHeader() + renderTabs() + renderBody()
+    + renderDetailModal() + renderShareMenuModal() + renderNoteModal()
+    + renderAddClassModal() + renderAddExamModal()
+    + renderSettingsOverlay();
+  attachGlobalHandlers();
+  if(UI.tab==='attendance' || UI.tab==='summary'){
+    const year = new Date().getFullYear();
+    if(!DB.holidaysCache[year]){
+      ensureHolidaysLoaded(year).then(()=>{ ensureHolidaysLoaded(year+1).then(render); });
+    }
+  }
+}
+function renderEmptyStateScreen(){
+  return `
+  <div class="app-header">
+    <h1>📋 יומן נוכחות</h1>
+  </div>
+  <div class="card" style="text-align:center;padding:40px 20px;">
+    <div style="font-size:48px;margin-bottom:12px;">👋</div>
+    <h2 style="justify-content:center;">ברוך הבא!</h2>
+    <p style="color:var(--text-muted);font-size:14px;margin-bottom:20px;">כדי להתחיל, צריך להוסיף כיתה ראשונה.</p>
+    <button class="btn-primary" style="padding:14px 28px;font-size:16px;" onclick="openSettings()">+ הוסף כיתה</button>
+  </div>`;
+}
+function attachGlobalHandlers(){
+  const backupInput = document.getElementById('restoreFileInput');
+  if(backupInput){
+    backupInput.addEventListener('change', function(e){
+      const file = e.target.files[0];
+      if(!file) return;
+      const reader = new FileReader();
+      reader.onload = function(ev){
+        try{
+          const parsed = JSON.parse(ev.target.result);
+          if(parsed.classes){
+            DB = parsed;
+            saveDB();
+            showToast('הגיבוי שוחזר בהצלחה');
+            render();
+          }else{ showToast('קובץ לא תקין'); }
+        }catch(err){ showToast('שגיאה בקריאת הקובץ'); }
+      };
+      reader.readAsText(file);
+    });
+  }
+}
+
+/* ===================== HEADER ===================== */
+function renderHeader(){
+  const d = isoToDate(UI.date);
+  const classOptions = Object.entries(DB.classes).map(([id,c])=>
+    `<option value="${id}" ${id===DB.activeClassId?'selected':''}>${escapeHtml(c.name)}</option>`).join('');
+  return `
+  <div class="app-header">
+    <button class="settings-gear" onclick="openSettings()">⚙️</button>
+    <h1>📋 יומן נוכחות</h1>
+    <div class="class-row">
+      <select class="class-select" onchange="switchClass(this.value)">${classOptions}</select>
+      <button class="date-picker-input" onclick="document.getElementById('hiddenDateInput').showPicker && document.getElementById('hiddenDateInput').showPicker()">📅</button>
+      <input type="date" id="hiddenDateInput" max="${todayISO()}" style="position:absolute;opacity:0;width:0;height:0;" value="${UI.date}" onchange="setDate(this.value)">
+    </div>
+    <div class="date-nav">
+      <button onclick="shiftDate(-1)">‹</button>
+      <div class="date-info">
+        <div class="greg">${d.toLocaleDateString('he-IL',{weekday:'long',day:'numeric',month:'numeric',year:'numeric'})}</div>
+        <div class="heb">${hebrewDateStr(d)}</div>
+      </div>
+      <button onclick="shiftDate(1)" style="${UI.date>=todayISO()?'opacity:0.35;':''}">›</button>
+    </div>
+  </div>`;
+}
+function switchClass(id){ DB.activeClassId=id; saveDB(); render(); }
+function shiftDate(n){
+  const next = addDaysISO(UI.date, n);
+  if(next>todayISO()){ showToast('לא ניתן לרשום נוכחות לתאריך עתידי'); return; }
+  UI.date = next; render();
+}
+function setDate(v){
+  if(!v) return;
+  if(v>todayISO()){ showToast('לא ניתן לרשום נוכחות לתאריך עתידי'); render(); return; }
+  UI.date=v; render();
+}
+
+/* ===================== TABS ===================== */
+const TABS = [
+  {id:'attendance', label:'נוכחות', icon:'📋'},
+  {id:'summary', label:'סיכומים', icon:'📊'},
+  {id:'grades', label:'ציונים', icon:'📝'}
+];
+function renderTabs(){
+  return `<div class="tabs">${TABS.map(t=>
+    `<button class="tab-btn ${UI.tab===t.id?'active':''}" onclick="setTab('${t.id}')">${t.icon} ${t.label}</button>`
+  ).join('')}</div>`;
+}
+function setTab(id){ UI.tab=id; UI.openNote=null; render(); }
+function renderBody(){
+  if(UI.tab==='attendance') return renderAttendanceTab();
+  if(UI.tab==='grades') return renderGradesTab();
+  if(UI.tab==='summary') return renderSummaryTab();
+  return '';
+}
+
+/* ===================== ATTENDANCE TAB ===================== */
+function initials(name){ const t=String(name||'').trim(); return t?t[0]:'?'; }
+
+function renderAttendanceTab(){
+  const cls = getClass();
+  const nonSchool = isNonSchoolDay(UI.date);
+  const d = isoToDate(UI.date);
+  let banner = '';
+  if(nonSchool){
+    const reason = isShabbat(d) ? 'שבת' : (getHolidayNameSync(UI.date) ? 'חג' : 'יום חופש');
+    banner = `<div class="non-school-banner">
+      אין רישום נוכחות ביום זה (${reason}).
+      <div><button onclick="overrideDay('school')">בכל זאת לרשום נוכחות היום</button></div>
+    </div>`;
+  } else {
+    const override = cls.dayOverrides[UI.date];
+    if(override==='school'){
+      banner = `<div class="non-school-banner" style="background:var(--primary-pale);border-color:var(--primary-light);color:var(--primary-dark);">
+        יום זה סומן ידנית כיום לימודים.
+        <div><button onclick="clearOverride()">בטל סימון</button></div>
+      </div>`;
+    }
+  }
+  if(cls.students.length===0){
+    return `<div class="card"><div class="empty-state">אין עדיין תלמידים בכיתה זו.<br>אפשר להוסיף מהגדרות (⚙️).</div></div>`;
+  }
+  if(nonSchool){ return banner; }
+
+  const rows = cls.students.map(s => renderStudentRow(s)).join('');
+  const lessons = lessonsList();
+  const locked = isDayLocked(UI.date);
+  const headerCells = lessons.map(lesson=>{
+    const allArrived = cls.students.every(s=>{ const e=getEntry(UI.date,s.id,lesson); return e.arrived; });
+    return `<th class="att-lesson-header">
+      <div style="margin-bottom:5px;">${lessonLabel(lesson)}</div>
+      <button class="mark-all-btn ${allArrived?'on':''}" onclick="markAllPresent('${lesson}')">${allArrived?'✓ כולם הגיעו':'סמן הכל'}</button>
+    </th>`;
+  }).join('');
+  return `
+    ${banner}
+    <div class="card">
+      <h2 style="justify-content:space-between;">
+        <span style="display:flex;align-items:center;gap:9px;"><span class="section-icon teal">📋</span>נוכחות ליום זה</span>
+        <button class="day-lock-btn ${locked?'locked':''}" onclick="toggleDayLock()">${locked?'✏️ ערוך':'🔒 שמור'}</button>
+      </h2>
+      <div style="overflow-x:auto;" class="${locked?'locked-table':''}">
+      <table class="att-table">
+        <thead><tr><th></th>${headerCells}</tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+      </div>
+      <div class="btn-row">
+        <button class="btn-primary" style="width:100%;" onclick="openShareMenu({kind:'day', iso:UI.date})">📤 שיתוף</button>
+      </div>
+    </div>
+  `;
+}
+let markAllSnapshots = {};
+function markAllPresent(lesson){
+  if(isDayLocked(UI.date)){ showToast('הרישום נעול - לחץ "ערוך" כדי לשנות'); return; }
+  const cls = getClass();
+  const key = `${UI.date}_${lesson}`;
+  const allArrived = cls.students.length>0 && cls.students.every(s=>{ const e=getEntry(UI.date,s.id,lesson); return e.arrived; });
+  if(!allArrived){
+    const snap = {};
+    cls.students.forEach(s=>{
+      const e = getEntry(UI.date, s.id, lesson);
+      snap[s.id] = {arrived:e.arrived, late:e.late, minutesLate:e.minutesLate};
+    });
+    markAllSnapshots[key] = snap;
+    cls.students.forEach(s=>{
+      getEntry(UI.date, s.id, lesson).arrived = true;
+    });
+  } else {
+    const snap = markAllSnapshots[key];
+    cls.students.forEach(s=>{
+      const e = getEntry(UI.date, s.id, lesson);
+      if(snap && snap[s.id]){
+        e.arrived = snap[s.id].arrived;
+        e.late = snap[s.id].late;
+        e.minutesLate = snap[s.id].minutesLate;
+      } else {
+        e.arrived = false; e.late=false; e.minutesLate=null;
+      }
+    });
+    delete markAllSnapshots[key];
+  }
+  saveDB(); render();
+}
+function renderStudentRow(s){
+  const lessons = lessonsList();
+  const cells = lessons.map(lesson=>{
+    const e = getEntry(UI.date, s.id, lesson);
+    return `<td class="lesson-block">${renderLessonCell(s.id,lesson,e)}</td>`;
+  }).join('');
+  return `
+  <tr class="att-row">
+    <td class="att-name-cell"><div class="name-with-avatar"><span class="mini-avatar">${initials(s.name)}</span>${escapeHtml(s.name)}</div></td>
+    ${cells}
+  </tr>`;
+}
+function renderLessonCell(studentId, lesson, entry){
+  const dot = entry.noteType ? `<span class="note-dot ${entry.noteType}"></span>` : (entry.noteText ? `<span class="note-dot neutral"></span>` : '');
+  return `
+    <button class="arrived-btn ${entry.arrived?'on':''}" onclick="toggleArrived('${studentId}','${lesson}')">✓ הגיע</button>
+    <div class="mini-icon-row">
+      <button class="mini-icon-btn ${entry.late?'on-late':''}" onclick="toggleLate('${studentId}','${lesson}')" title="איחור">🕐</button>
+      <button class="mini-icon-btn ${entry.noteText||entry.noteType?'on-note':''}" onclick="toggleNote('${studentId}','${lesson}')" title="הערה">📝${dot}</button>
+    </div>
+    ${entry.late ? `
+    <select class="minutes-select" onchange="setMinutesLate('${studentId}','${lesson}', this.value)">
+      ${[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,20,25,30,45,60].map(m=>`<option value="${m}" ${entry.minutesLate===m?'selected':''}>${m} דק'</option>`).join('')}
+    </select>` : ''}
+  `;
+}
+function renderNoteModal(){
+  if(!UI.openNote) return '';
+  const {studentId, lesson} = UI.openNote;
+  const cls = getClass();
+  const student = cls.students.find(s=>s.id===studentId);
+  if(!student) return '';
+  const entry = getEntry(UI.date, studentId, lesson);
+  return `
+  <div class="modal-bg top" onclick="if(event.target===this) closeNoteModal()">
+    <div class="modal-box">
+      <h3>📝 ${escapeHtml(student.name)} · ${lessonLabel(lesson)}</h3>
+      <div class="note-type-row">
+        <button class="note-type-btn good ${entry.noteType==='good'?'selected':''}" onclick="setNoteType('${studentId}','${lesson}','good')">🟢 טובה</button>
+        <button class="note-type-btn neutral ${entry.noteType==='neutral'||!entry.noteType?'selected':''}" onclick="setNoteType('${studentId}','${lesson}','neutral')">⚪ הערה</button>
+        <button class="note-type-btn bad ${entry.noteType==='bad'?'selected':''}" onclick="setNoteType('${studentId}','${lesson}','bad')">🔴 רעה</button>
+      </div>
+      <textarea class="note-textarea" id="noteText_${studentId}_${lesson}" placeholder="כתוב הערה קצרה...">${escapeHtml(entry.noteText||'')}</textarea>
+      <div class="btn-row">
+        <button class="btn-primary" style="flex:1;" onclick="submitNote('${studentId}','${lesson}')">שמור</button>
+        <button class="btn-secondary" style="flex:0 0 70px;color:var(--danger);border-color:var(--danger-pale);" onclick="clearNoteAttendance('${studentId}','${lesson}')">מחק</button>
+      </div>
+    </div>
+  </div>`;
+}
+function closeNoteModal(){ UI.openNote=null; render(); }
+
+/* ===================== GRADES TAB ===================== */
+function renderGradesTab(){
+  const cls = getClass();
+  if(cls.students.length===0){
+    return `<div class="card"><div class="empty-state">אין תלמידים בכיתה זו עדיין.</div></div>`;
+  }
+  const examsSorted = cls.exams.slice().sort((a,b)=>b.date.localeCompare(a.date));
+  const examsHtml = examsSorted.length===0 ? `<div class="empty-state">אין עדיין מבחנים רשומים.</div>` :
+    `<div class="exam-list">${examsSorted.map(ex=>{
+      const scored = Object.keys(ex.scores||{}).length;
+      return `<div class="exam-item ${UI.activeExamId===ex.id?'active':''}"
+        onclick="selectExam('${ex.id}')"
+        onmousedown="startLongPress('${ex.id}')" onmouseup="cancelLongPress()" onmouseleave="cancelLongPress()"
+        ontouchstart="event.preventDefault(); startLongPress('${ex.id}')" ontouchend="cancelLongPress(); selectExam('${ex.id}')" ontouchcancel="cancelLongPress()">
+        <span>${escapeHtml(ex.title)} — ${hebrewDateStr(isoToDate(ex.date))}</span>
+        <span class="exam-hint">${scored}/${cls.students.length} · לחיצה ארוכה למחיקה</span>
+      </div>`;
+    }).join('')}</div>`;
+
+  let scoresBlock = '';
+  const activeExam = cls.exams.find(e=>e.id===UI.activeExamId);
+  if(activeExam){
+    if(!activeExam.effort) activeExam.effort = {};
+    scoresBlock = `
+    <div class="card">
+      <h3>ציונים והשקעה — ${escapeHtml(activeExam.title)}</h3>
+      ${cls.students.map(s=>`
+        <div class="score-row">
+          <span onclick="openStudentGradesModal('${s.id}')" style="cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px;">${escapeHtml(s.name)}</span>
+          <input type="number" min="0" max="100" class="score-input" value="${activeExam.scores[s.id] ?? ''}"
+            placeholder="ציון" onchange="setScore('${activeExam.id}','${s.id}', this.value)">
+          <input type="text" class="effort-input" value="${escapeHtml(activeExam.effort[s.id]||'')}"
+            placeholder="השקעה" onchange="setEffort('${activeExam.id}','${s.id}', this.value)">
+        </div>`).join('')}
+      <div class="btn-row">
+        <button class="btn-primary" style="width:100%;" onclick="openShareMenu({kind:'examResults', examId:'${activeExam.id}'})">📤 שיתוף תוצאות</button>
+      </div>
+    </div>`;
+  }
+
+  const studentGradesListHtml = `
+  <div class="card">
+    <h2><span class="section-icon amber">📈</span>כל הציונים לפי תלמיד</h2>
+    ${cls.students.map(s=>`
+      <div class="student-row" style="cursor:pointer;" onclick="openStudentGradesModal('${s.id}')">
+        <span>${escapeHtml(s.name)}</span>
+        <span style="color:var(--text-muted);font-size:12px;">הצג הכל ›</span>
+      </div>`).join('')}
+  </div>`;
+
+  return `
+  <div class="card">
+    <h2><span class="section-icon amber">📝</span>מבחנים — סיכום עד כה</h2>
+    ${examsHtml}
+    <div class="btn-row"><button class="btn-primary" onclick="openAddExamModal()">+ מבחן חדש</button></div>
+  </div>
+  ${scoresBlock}
+  ${studentGradesListHtml}
+  `;
+}
+function startLongPress(examId){
+  longPressFired = false;
+  longPressTimer = setTimeout(()=>{ longPressFired=true; deleteExamConfirm(examId); }, 600);
+}
+function cancelLongPress(){ if(longPressTimer){ clearTimeout(longPressTimer); longPressTimer=null; } }
+function deleteExamConfirm(id){ if(confirm('למחוק את המבחן?')) deleteExam(id); }
+function selectExam(id){
+  if(longPressFired){ longPressFired=false; return; }
+  UI.activeExamId = (UI.activeExamId===id)?null:id;
+  render();
+}
+function deleteExam(id){
+  const cls = getClass();
+  cls.exams = cls.exams.filter(e=>e.id!==id);
+  if(UI.activeExamId===id) UI.activeExamId=null;
+  saveDB(); render();
+}
+function setScore(examId, studentId, value){
+  const cls = getClass();
+  const ex = cls.exams.find(e=>e.id===examId);
+  if(!ex) return;
+  const num = value==='' ? undefined : Math.max(0,Math.min(100,Number(value)));
+  if(num===undefined) delete ex.scores[studentId]; else ex.scores[studentId]=num;
+  saveDB();
+}
+function setEffort(examId, studentId, value){
+  const cls = getClass();
+  const ex = cls.exams.find(e=>e.id===examId);
+  if(!ex) return;
+  if(!ex.effort) ex.effort={};
+  const v = (value||'').trim();
+  if(!v) delete ex.effort[studentId]; else ex.effort[studentId]=v;
+  saveDB();
+}
+
+/* -------- add exam modal (self-contained Hebrew calendar picker, no external API) -------- */
+function hebMonthYearLabel(date){
+  const month = hebMonthNameOnly(date);
+  const year = gematria(hebYearNumeric(date) % 1000);
+  return `${month} ${year}`;
+}
+function findHebrewMonthBounds(anchorDate){
+  let d = new Date(anchorDate);
+  let guard = 0;
+  while(hebDayNumeric(d) !== 1 && guard<40){ d.setDate(d.getDate()-1); guard++; }
+  const start = new Date(d);
+  const label = hebMonthYearLabel(start);
+  let end = new Date(start);
+  guard = 0;
+  while(guard<40){
+    const next = new Date(end); next.setDate(end.getDate()+1);
+    if(hebMonthYearLabel(next) !== label) break;
+    end = next; guard++;
+  }
+  return {start, end, label};
+}
+function openAddExamModal(){
+  UI.examDraft = {title:'', anchorISO: UI.date, selectedISO: UI.date};
+  render();
+}
+function closeAddExamModal(){ UI.examDraft=null; render(); }
+function updateExamDraftSilent(field,value){ if(UI.examDraft) UI.examDraft[field]=value; }
+function shiftExamCalendar(dir){
+  const anchor = isoToDate(UI.examDraft.anchorISO);
+  const {start,end} = findHebrewMonthBounds(anchor);
+  const newAnchor = dir<0 ? new Date(start.getTime()-86400000) : new Date(end.getTime()+86400000);
+  UI.examDraft.anchorISO = dateToISO(newAnchor);
+  render();
+}
+function selectExamCalendarDay(iso){ UI.examDraft.selectedISO = iso; render(); }
+function confirmAddExam(){
+  const d = UI.examDraft;
+  if(!d.title || !d.title.trim()){ showToast('צריך שם למבחן'); return; }
+  const cls = getClass();
+  const ex = {id:uid(), title:d.title.trim(), date:d.selectedISO, scores:{}, effort:{}};
+  cls.exams.push(ex);
+  UI.activeExamId = ex.id;
+  UI.examDraft = null;
+  saveDB(); render();
+}
+function renderExamCalendarGrid(){
+  const anchor = isoToDate(UI.examDraft.anchorISO);
+  const {start, end, label} = findHebrewMonthBounds(anchor);
+  const days = [];
+  let cur = new Date(start);
+  while(cur<=end){ days.push(new Date(cur)); cur.setDate(cur.getDate()+1); }
+  const leadingBlanks = start.getDay();
+  const weekdayNames = ['א','ב','ג','ד','ה','ו','ש'];
+  let cells = weekdayNames.map(w=>`<div class="cal-weekday">${w}</div>`).join('');
+  for(let i=0;i<leadingBlanks;i++) cells += '<div></div>';
+  days.forEach(dt=>{
+    const iso = dateToISO(dt);
+    const hdLabel = hebDayLabel(dt);
+    const isSelected = UI.examDraft.selectedISO===iso;
+    const isToday = iso===todayISO();
+    cells += `<button class="cal-day ${isSelected?'selected':''} ${isToday&&!isSelected?'today':''}" onclick="selectExamCalendarDay('${iso}')">${hdLabel}</button>`;
+  });
+  return `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+      <button class="btn-secondary" style="padding:6px 10px;" onclick="shiftExamCalendar(-1)">‹</button>
+      <b style="color:var(--primary-dark);">${label}</b>
+      <button class="btn-secondary" style="padding:6px 10px;" onclick="shiftExamCalendar(1)">›</button>
+    </div>
+    <div class="cal-grid">${cells}</div>
+  `;
+}
+function renderAddExamModal(){
+  if(!UI.examDraft) return '';
+  const d = UI.examDraft;
+  const selD = isoToDate(d.selectedISO);
+  return `
+  <div class="modal-bg" onclick="if(event.target===this) closeAddExamModal()">
+    <div class="modal-box" style="max-width:380px;">
+      <h3>מבחן חדש</h3>
+      <input type="text" class="input-line" placeholder="שם/נושא המבחן" value="${escapeHtml(d.title)}" oninput="updateExamDraftSilent('title', this.value)">
+      <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px;font-weight:700;">בחר תאריך (לוח עברי):</div>
+      ${renderExamCalendarGrid()}
+      <div style="text-align:center;font-size:12px;color:var(--primary-dark);font-weight:700;margin-top:8px;">
+        נבחר: ${hebrewDateStr(selD)}
+      </div>
+      <div class="btn-row">
+        <button class="btn-primary" style="flex:1;" onclick="confirmAddExam()">צור מבחן</button>
+        <button class="btn-secondary" style="flex:1;" onclick="closeAddExamModal()">ביטול</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+/* ===================== SUMMARY TAB ===================== */
+function getWeekRange(iso){
+  const d = isoToDate(iso);
+  const dow = d.getDay();
+  const start = new Date(d); start.setDate(d.getDate()-dow);
+  const end = new Date(start); end.setDate(start.getDate()+6);
+  return [dateToISO(start), dateToISO(end)];
+}
+function getMonthRange(iso){
+  const bounds = findHebrewMonthBounds(isoToDate(iso));
+  return [dateToISO(bounds.start), dateToISO(bounds.end)];
+}
+function computeSummary(startISO,endISO){
+  const cls = getClass();
+  const lessons = lessonsList();
+  const stats = {};
+  cls.students.forEach(s=> stats[s.id]={present:0,late:0,absent:0,good:0,neutral:0,bad:0,totalLessons:0});
+  const today = todayISO();
+  let cur = startISO;
+  while(cur<=endISO){
+    if(cur>today) break;
+    const isSchoolDay = !isNonSchoolDay(cur) || cls.dayOverrides[cur]==='school';
+    if(isSchoolDay){
+      const day = cls.attendance[cur] || {};
+      cls.students.forEach(s=>{
+        lessons.forEach(lesson=>{
+          stats[s.id].totalLessons++;
+          const e = normalizeEntry(day[s.id] && day[s.id][lesson]);
+          if(e.arrived && e.late) stats[s.id].late++;
+          else if(e.arrived) stats[s.id].present++;
+          else stats[s.id].absent++;
+          if(e.noteType) stats[s.id][e.noteType]++;
+        });
+      });
+    }
+    cur = addDaysISO(cur,1);
+  }
+  return stats;
+}
+function collectStudentNotes(studentId, startISO, endISO){
+  const cls = getClass();
+  const notes = [];
+  Object.keys(cls.attendance).sort().forEach(iso=>{
+    if(iso<startISO || iso>endISO) return;
+    const day = cls.attendance[iso];
+    const rec = day[studentId];
+    if(!rec) return;
+    lessonsList().forEach(lesson=>{
+      const e = rec[lesson];
+      if(e && e.noteText){
+        notes.push({date:iso, lesson: lessonLabel(lesson), lessonKey: lesson, type: e.noteType||'neutral', text:e.noteText});
+      }
+    });
+  });
+  return notes;
+}
+function collectPersonalReport(studentId, startISO, endISO){
+  const cls = getClass();
+  const lessons = lessonsList();
+  const today = todayISO();
+  const rows = [];
+  let cur = startISO;
+  while(cur<=endISO){
+    if(cur>today) break;
+    if(!isNonSchoolDay(cur) || cls.dayOverrides[cur]==='school'){
+      const day = cls.attendance[cur] || {};
+      const rec = day[studentId] || {};
+      const lessonsInfo = lessons.map(lesson=>{
+        const e = normalizeEntry(rec[lesson]);
+        return {lesson, label:lessonLabel(lesson), status:attendanceLabel(e), noteType:e.noteType, noteText:e.noteText};
+      });
+      const examsToday = cls.exams.filter(ex=>ex.date===cur);
+      rows.push({date:cur, lessonsInfo, examsToday});
+    }
+    cur = addDaysISO(cur,1);
+  }
+  return rows;
+}
+function renderDailyReviewRows(iso){
+  const cls = getClass();
+  return cls.students.map(s=>{
+    const day = cls.attendance[iso] || {};
+    const rec = day[s.id] || {};
+    const lessons = lessonsList();
+    const lessonsHtml = lessons.map(lesson=>{
+      const e = normalizeEntry(rec[lesson]);
+      return `<div class="drr-lesson"><b>${lessonLabel(lesson)}:</b> ${attendanceLabel(e)}</div>
+        ${e.noteText ? `<div class="drr-note ${e.noteType||'neutral'}">${noteIcon(e.noteType)} ${escapeHtml(e.noteText)}
+          <button class="remove-btn" style="font-size:10px;padding:2px 6px;float:left;" onclick="clearNote('${iso}','${s.id}','${lesson}')">🗑</button>
+        </div>` : ''}`;
+    }).join('');
+    return `<div class="daily-review-row">
+      <div class="drr-head"><span class="drr-avatar">${initials(s.name)}</span><span class="drr-name">${escapeHtml(s.name)}</span></div>
+      ${lessonsHtml}
+    </div>`;
+  }).join('');
+}
+function renderSummaryTab(){
+  const cls = getClass();
+  if(cls.students.length===0){
+    return `<div class="card"><div class="empty-state">אין תלמידים בכיתה זו עדיין.</div></div>`;
+  }
+  const modeToggle = `
+    <div class="summary-toggle">
+      <button class="${UI.summaryMode==='day'?'active':''}" onclick="setSummaryMode('day')">יומי</button>
+      <button class="${UI.summaryMode==='week'?'active':''}" onclick="setSummaryMode('week')">שבועי</button>
+      <button class="${UI.summaryMode==='month'?'active':''}" onclick="setSummaryMode('month')">חודשי</button>
+    </div>`;
+
+  if(UI.summaryMode==='day'){
+    const d = isoToDate(UI.summaryRef);
+    const label = `${d.toLocaleDateString('he-IL',{weekday:'long',day:'numeric',month:'numeric',year:'numeric'})}`;
+    return `
+    <div class="card">
+      <h2><span class="section-icon indigo">📊</span>סיכום יומי — למעקב ולטיפול</h2>
+      ${modeToggle}
+      <div class="date-nav" style="background:var(--surface-alt);color:var(--text);margin-bottom:10px;">
+        <button style="background:var(--primary-pale);color:var(--primary-dark);" onclick="shiftSummaryRef(-1)">‹</button>
+        <div class="date-info"><div class="heb" style="color:var(--primary-dark);font-size:13px;">${label}</div></div>
+        <button style="background:var(--primary-pale);color:var(--primary-dark);" onclick="shiftSummaryRef(1)">›</button>
+      </div>
+      ${renderDailyReviewRows(UI.summaryRef)}
+      <div class="btn-row">
+        <button class="btn-primary" style="width:100%;" onclick="openShareMenu({kind:'day', iso:UI.summaryRef})">📤 שיתוף</button>
+      </div>
+    </div>`;
+  }
+
+  const range = UI.summaryMode==='week' ? getWeekRange(UI.summaryRef) : getMonthRange(UI.summaryRef);
+  const stats = computeSummary(range[0], range[1]);
+  const rangeLabel = UI.summaryMode==='month'
+    ? hebMonthYearLabel(isoToDate(UI.summaryRef))
+    : `${formatDateHeShort(range[0])} – ${formatDateHeShort(range[1])}`;
+  const rows = cls.students.map(s=>{
+    const st = stats[s.id];
+    const attended = st.present+st.late;
+    const pct = st.totalLessons>0 ? Math.round((attended/st.totalLessons)*100) : 0;
+    const missing = computeMissingExams(s.id, range);
+    return `<tr>
+      <td onclick="openAllNotesModal('${s.id}')" style="cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px;">${escapeHtml(s.name)}</td>
+      <td onclick="openPersonalReport('${s.id}')" style="cursor:pointer;">${st.present}</td>
+      <td onclick="openPersonalReport('${s.id}')" style="cursor:pointer;">${st.late}</td>
+      <td onclick="openPersonalReport('${s.id}')" style="cursor:pointer;">${st.absent}</td>
+      <td onclick="openPersonalReport('${s.id}')" style="cursor:pointer;">${st.totalLessons>0?pct+'%':'-'}<div class="pct-bar"><div class="pct-fill" style="width:${pct}%"></div></div></td>
+      <td>
+        <span class="note-badge" onclick="openNotesFiltered('${s.id}','good')">🟢${st.good}</span>
+        <span class="note-badge" onclick="openNotesFiltered('${s.id}','neutral')">⚪${st.neutral}</span>
+        <span class="note-badge" onclick="openNotesFiltered('${s.id}','bad')">🔴${st.bad}</span>
+      </td>
+      <td>${missing.length ? `<span class="missing-exam-badge" onclick="onMissingBadgeClick('${s.id}')" onmousedown="startBadgeLongPress('${s.id}')" onmouseup="cancelBadgeLongPress()" onmouseleave="cancelBadgeLongPress()" ontouchstart="event.preventDefault(); startBadgeLongPress('${s.id}')" ontouchend="cancelBadgeLongPress(); onMissingBadgeClick('${s.id}')" ontouchcancel="cancelBadgeLongPress()" title="חסר ציון · לחיצה ארוכה להסרה">⚠️ ${missing.length}</span>` : '<span style="color:var(--success);">✓</span>'}</td>
+    </tr>`;
+  }).join('');
+
+  return `
+  <div class="card">
+    <h2><span class="section-icon indigo">📊</span>סיכום נוכחות</h2>
+    ${modeToggle}
+    <div class="date-nav" style="background:var(--surface-alt);color:var(--text);margin-bottom:10px;">
+      <button style="background:var(--primary-pale);color:var(--primary-dark);" onclick="shiftSummaryRef(-1)">‹</button>
+      <div class="date-info"><div class="heb" style="color:var(--primary-dark);">${rangeLabel}</div></div>
+      <button style="background:var(--primary-pale);color:var(--primary-dark);" onclick="shiftSummaryRef(1)">›</button>
+    </div>
+    <div style="overflow-x:auto;">
+    <table class="summary-table">
+      <thead><tr><th>תלמיד</th><th>נכח</th><th>איחור</th><th>נעדר</th><th>אחוז</th><th>הערות</th><th>מבחנים</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+    </div>
+    <div style="font-size:11px;color:var(--text-muted);margin-top:6px;">לחיצה על שם - כל ההערות שלו בטווח · לחיצה על מספרי הנוכחות - דוח יומי מפורט · לחיצה על עיגול - הערות מאותו סוג</div>
+    <div class="btn-row" style="align-items:stretch;">
+      <div style="position:relative;flex:1;min-width:90px;">
+        <button class="btn-secondary" style="width:100%;" onclick="exportSummary('image')">📷 תמונה</button>
+        <button class="mini-share-icon-inset left" onclick="exportSummary('image','download')" title="הורדה">⬇️</button>
+        <button class="mini-share-icon-inset right" onclick="exportSummary('image','print')" title="הדפסה">🖨️</button>
+      </div>
+      <div style="position:relative;flex:1;min-width:90px;">
+        <button class="btn-secondary" style="width:100%;" onclick="exportSummary('pdf')">📄 PDF</button>
+        <button class="mini-share-icon-inset left" onclick="exportSummary('pdf','download')" title="הורדה">⬇️</button>
+        <button class="mini-share-icon-inset right" onclick="exportSummary('pdf','print')" title="הדפסה">🖨️</button>
+      </div>
+      <button class="btn-secondary" onclick="exportSummary('excel')">📊 אקסל</button>
+    </div>
+  </div>`;
+}
+function setSummaryMode(mode){ UI.summaryMode=mode; render(); }
+function shiftSummaryRef(n){
+  if(UI.summaryMode==='month'){
+    const bounds = findHebrewMonthBounds(isoToDate(UI.summaryRef));
+    const newAnchor = n<0 ? new Date(bounds.start.getTime()-86400000) : new Date(bounds.end.getTime()+86400000);
+    UI.summaryRef = dateToISO(newAnchor);
+    render();
+    return;
+  }
+  const d = isoToDate(UI.summaryRef);
+  if(UI.summaryMode==='day') d.setDate(d.getDate()+n);
+  else d.setDate(d.getDate()+7*n);
+  UI.summaryRef = dateToISO(d);
+  render();
+}
+function computeMissingExams(studentId, range){
+  const cls = getClass();
+  return cls.exams.filter(ex => ex.date>=range[0] && ex.date<=range[1] && (ex.scores[studentId]==null) && !(ex.excused && ex.excused[studentId]));
+}
+function openMissingExamsModal(studentId){
+  UI.detailModal = {type:'missingExams', studentId, range: currentSummaryRange()};
+  render();
+}
+function openStudentGradesModal(studentId){
+  UI.detailModal = {type:'studentGrades', studentId, range:['','']};
+  render();
+}
+let badgeLongPressTimer=null, badgeLongPressFired=false;
+function startBadgeLongPress(studentId){
+  badgeLongPressFired=false;
+  badgeLongPressTimer=setTimeout(()=>{ badgeLongPressFired=true; excuseMissingExams(studentId); }, 600);
+}
+function cancelBadgeLongPress(){ if(badgeLongPressTimer){ clearTimeout(badgeLongPressTimer); badgeLongPressTimer=null; } }
+function onMissingBadgeClick(studentId){
+  if(badgeLongPressFired){ badgeLongPressFired=false; return; }
+  openMissingExamsModal(studentId);
+}
+function excuseMissingExams(studentId){
+  const range = currentSummaryRange();
+  const missing = computeMissingExams(studentId, range);
+  if(!missing.length) return;
+  if(!confirm(`להסיר את ההתראה על ${missing.length} מבחן/ים חסרים לתלמיד זה?`)) return;
+  missing.forEach(ex=>{ if(!ex.excused) ex.excused={}; ex.excused[studentId]=true; });
+  saveDB(); render();
+}
+function currentSummaryRange(){
+  return UI.summaryMode==='month' ? getMonthRange(UI.summaryRef) : getWeekRange(UI.summaryRef);
+}
+function openPersonalReport(studentId){
+  UI.detailModal = {type:'personalReport', studentId, range: currentSummaryRange()};
+  render();
+}
+function openNotesFiltered(studentId, noteType){
+  UI.detailModal = {type:'notesFiltered', studentId, noteType, range: currentSummaryRange()};
+  render();
+}
+function openAllNotesModal(studentId){
+  UI.detailModal = {type:'allNotes', studentId, range: currentSummaryRange()};
+  render();
+}
+function closeDetailModal(){ UI.detailModal=null; render(); }
+function renderDetailModal(){
+  if(!UI.detailModal) return '';
+  const d = UI.detailModal;
+  const cls = getClass();
+  const student = cls.students.find(s=>s.id===d.studentId);
+  if(!student) return '';
+  let title='', bodyHtml='';
+  if(d.type==='personalReport'){
+    title = `דוח אישי — ${escapeHtml(student.name)}`;
+    const rows = collectPersonalReport(d.studentId, d.range[0], d.range[1]);
+    bodyHtml = rows.length ? rows.map(r=>`
+      <div class="daily-review-row">
+        <div class="drr-name" style="margin-bottom:4px;">${formatDateHeShort(r.date)}</div>
+        ${r.lessonsInfo.map(li=>`<div class="drr-lesson"><b>${li.label}:</b> ${li.status}</div>${li.noteText?`<div class="drr-note ${li.noteType||'neutral'}">${noteIcon(li.noteType)} ${escapeHtml(li.noteText)}
+          <button class="remove-btn" style="font-size:10px;padding:2px 6px;float:left;" onclick="clearNote('${r.date}','${d.studentId}','${li.lesson}')">🗑</button>
+        </div>`:''}`).join('')}
+        ${r.examsToday.map(ex=>`<div class="drr-lesson" style="margin-top:4px;">📝 <b>${escapeHtml(ex.title)}</b>${ex.scores[d.studentId]!=null?': '+ex.scores[d.studentId]:''}</div>`).join('')}
+      </div>`).join('') : `<div class="empty-state">אין נתונים בטווח זה.</div>`;
+  } else if(d.type==='notesFiltered'){
+    title = `הערות ${noteIcon(d.noteType)} ${noteTypeTitle(d.noteType)} — ${escapeHtml(student.name)}`;
+    const notes = collectStudentNotes(d.studentId, d.range[0], d.range[1]).filter(n=>n.type===d.noteType);
+    bodyHtml = notes.length ? notes.map(n=>`
+      <div class="drr-note ${d.noteType}" style="margin-bottom:8px;">
+        <div style="font-size:11px;font-weight:700;margin-bottom:2px;">${formatDateHeShort(n.date)} · ${n.lesson}</div>
+        ${escapeHtml(n.text)}
+        <button class="remove-btn" style="font-size:10px;padding:2px 6px;float:left;" onclick="clearNote('${n.date}','${d.studentId}','${n.lessonKey}')">🗑</button>
+      </div>`).join('') : `<div class="empty-state">אין הערות מסוג זה בטווח.</div>`;
+  } else if(d.type==='allNotes'){
+    title = `כל ההערות — ${escapeHtml(student.name)}`;
+    const notes = collectStudentNotes(d.studentId, d.range[0], d.range[1]);
+    bodyHtml = notes.length ? notes.map(n=>`
+      <div class="drr-note ${n.type}" style="margin-bottom:8px;">
+        <div style="font-size:11px;font-weight:700;margin-bottom:2px;">${noteIcon(n.type)} ${formatDateHeShort(n.date)} · ${n.lesson}</div>
+        ${escapeHtml(n.text)}
+        <button class="remove-btn" style="font-size:10px;padding:2px 6px;float:left;" onclick="clearNote('${n.date}','${d.studentId}','${n.lessonKey}')">🗑</button>
+      </div>`).join('') : `<div class="empty-state">אין הערות בטווח זה.</div>`;
+  } else if(d.type==='missingExams'){
+    title = `⚠️ מבחנים חסרים — ${escapeHtml(student.name)}`;
+    const missing = computeMissingExams(d.studentId, d.range);
+    bodyHtml = missing.length ? missing.map(ex=>`
+      <div class="daily-review-row">
+        <div class="drr-name">${escapeHtml(ex.title)}</div>
+        <div class="drr-lesson">${hebrewDateStr(isoToDate(ex.date))}</div>
+      </div>`).join('') : `<div class="empty-state">אין מבחנים חסרים.</div>`;
+  } else if(d.type==='studentGrades'){
+    title = `📈 כל הציונים — ${escapeHtml(student.name)}`;
+    const examsSorted = cls.exams.slice().sort((a,b)=>b.date.localeCompare(a.date));
+    bodyHtml = examsSorted.length ? examsSorted.map(ex=>{
+      const score = ex.scores[d.studentId];
+      const effort = (ex.effort && ex.effort[d.studentId]) || '';
+      return `<div class="daily-review-row">
+        <div class="drr-name">${escapeHtml(ex.title)}</div>
+        <div class="drr-lesson">${hebrewDateStr(isoToDate(ex.date))}</div>
+        <div class="drr-lesson"><b>ציון:</b> ${score!=null?score:'לא עשה'}${effort?' · <b>השקעה:</b> '+escapeHtml(effort):''}</div>
+      </div>`;
+    }).join('') : `<div class="empty-state">אין עדיין מבחנים.</div>`;
+  }
+  const ctxStr = `{kind:'${d.type}', studentId:'${d.studentId}', noteType:${d.noteType?`'${d.noteType}'`:'null'}, range:['${d.range[0]}','${d.range[1]}']}`;
+  return `
+  <div class="modal-bg" onclick="if(event.target===this) closeDetailModal()">
+    <div class="modal-box" style="max-width:400px;">
+      <h3>${title}</h3>
+      <div style="max-height:50vh;overflow-y:auto;">${bodyHtml}</div>
+      <div class="btn-row" style="margin-top:10px;">
+        ${(d.type!=='missingExams') ? `<button class="btn-primary" style="flex:1;" onclick="openShareMenu(${ctxStr})">שיתוף</button>` : ''}
+        <button class="btn-secondary" style="flex:1;" onclick="closeDetailModal()">סגור</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+/* ===================== SETTINGS OVERLAY ===================== */
+function openSettings(){ UI.showSettings=true; render(); }
+function closeSettings(){ UI.showSettings=false; render(); }
+function renderSettingsOverlay(){
+  if(!UI.showSettings) return '';
+  const cls = getClass();
+  const classesHtml = Object.entries(DB.classes).map(([id,c])=>`
+    <div class="student-row">
+      <span>${escapeHtml(c.name)} ${id===DB.activeClassId?'(פעילה)':''} <span style="font-size:11px;color:var(--text-muted);">· ${c.lessonsPerDay===1?'שיעור אחד ביום':'שני שיעורים ביום'}</span></span>
+      <span>
+        <button class="remove-btn" style="color:var(--primary);" onclick="renameClass('${id}')">✏️</button>
+        ${Object.keys(DB.classes).length>1 ? `<button class="remove-btn" onclick="deleteClassPrompt('${id}')">✕</button>` : ''}
+      </span>
+    </div>`).join('') || `<div class="empty-state">עדיין אין כיתות. הוסף כיתה כדי להתחיל.</div>`;
+
+  const studentsCard = cls ? `
+    <div class="card">
+      <h2><span class="section-icon slate">🧑‍🎓</span>תלמידים — ${escapeHtml(cls.name)}</h2>
+      ${cls.students.length===0 ? `<div class="empty-state">עדיין לא נוספו תלמידים.</div>` :
+        cls.students.map(s=>`
+        <div class="student-row">
+          <span>${escapeHtml(s.name)}</span>
+          ${UI.confirmRemoveStudent===s.id ?
+            `<button class="remove-btn confirming" onclick="removeStudent('${s.id}')">למחוק בוודאות?</button>` :
+            `<button class="remove-btn" onclick="askRemoveStudent('${s.id}')">✕</button>`}
+        </div>`).join('')}
+      <div class="btn-row">
+        <input type="text" id="newStudentName" class="input-line" placeholder="שם תלמיד חדש" style="margin-bottom:0;flex:1;" onkeydown="if(event.key==='Enter'){event.preventDefault();addStudentFromInput();}">
+        <button class="btn-primary" onclick="addStudentFromInput()">הוסף</button>
+      </div>
+    </div>` : '';
+
+  return `
+  <div class="settings-overlay">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+      <h2 style="margin:0;color:var(--primary-dark);">⚙️ הגדרות</h2>
+      ${hasAnyClass() ? '<button class="btn-secondary" onclick="closeSettings()">✕ סגור</button>' : '<button class="btn-secondary" onclick="closeSettings()">חזרה</button>'}
+    </div>
+    <div class="card">
+      <h2><span class="section-icon slate">🏫</span>ניהול כיתות</h2>
+      ${classesHtml}
+      <div class="btn-row"><button class="btn-primary" onclick="openAddClassModal()">+ כיתה חדשה</button></div>
+    </div>
+    ${studentsCard}
+    <div class="card">
+      <h2><span class="section-icon slate">💾</span>גיבוי ושחזור נתונים</h2>
+      <div class="btn-row">
+        <button class="btn-secondary" onclick="downloadBackup()">⬇️ הורד גיבוי</button>
+        <label class="btn-secondary" style="display:inline-block;">
+          ⬆️ שחזר מגיבוי
+          <input type="file" id="restoreFileInput" accept="application/json" style="display:none;">
+        </label>
+      </div>
+    </div>
+  </div>`;
+}
+function askRemoveStudent(id){ UI.confirmRemoveStudent=id; render(); }
+function removeStudent(id){
+  const cls = getClass();
+  cls.students = cls.students.filter(s=>s.id!==id);
+  UI.confirmRemoveStudent=null;
+  saveDB(); render();
+}
+function addStudentFromInput(){
+  const input = document.getElementById('newStudentName');
+  const name = input.value.trim();
+  if(!name) return;
+  const cls = getClass();
+  cls.students.push({id:uid(), name});
+  saveDB(); render();
+  const freshInput = document.getElementById('newStudentName');
+  if(freshInput) freshInput.focus();
+}
+function renameClass(id){
+  const c = DB.classes[id];
+  const name = prompt('שם חדש לכיתה:', c.name);
+  if(!name) return;
+  c.name = name.trim() || c.name;
+  saveDB(); render();
+}
+function openAddClassModal(){ UI.classDraft = {name:'', lessonsPerDay:2}; render(); }
+function closeAddClassModal(){ UI.classDraft=null; render(); }
+function updateClassDraftName(v){ if(UI.classDraft) UI.classDraft.name=v; }
+function setClassDraftLessons(n){ if(UI.classDraft){ UI.classDraft.lessonsPerDay=Number(n); render(); } }
+function confirmAddClass(){
+  const d = UI.classDraft;
+  if(!d.name || !d.name.trim()){ showToast('צריך שם לכיתה'); return; }
+  if(d.editingClassId && DB.classes[d.editingClassId]){
+    const c = DB.classes[d.editingClassId];
+    c.name = d.name.trim();
+    c.lessonsPerDay = d.lessonsPerDay;
+  } else {
+    const id = uid();
+    DB.classes[id] = {name:d.name.trim(), lessonsPerDay:d.lessonsPerDay, students:[], attendance:{}, exams:[], dayOverrides:{}};
+    DB.activeClassId = id;
+  }
+  UI.classDraft = null;
+  saveDB(); render();
+}
+function renderAddClassModal(){
+  if(!UI.classDraft) return '';
+  const d = UI.classDraft;
+  return `
+  <div class="modal-bg" onclick="if(event.target===this) closeAddClassModal()">
+    <div class="modal-box">
+      <h3>כיתה חדשה</h3>
+      <input type="text" class="input-line" placeholder="שם הכיתה" value="${escapeHtml(d.name)}" oninput="updateClassDraftName(this.value)" onkeydown="if(event.key==='Enter'){event.preventDefault();confirmAddClass();}">
+      <div style="font-size:13px;font-weight:700;color:var(--text-muted);margin-bottom:6px;">כמה שיעורים ביום יש לכיתה זו?</div>
+      <div class="summary-toggle" style="margin-bottom:6px;">
+        <button class="${d.lessonsPerDay===1?'active':''}" onclick="setClassDraftLessons(1)">שיעור אחד</button>
+        <button class="${d.lessonsPerDay===2?'active':''}" onclick="setClassDraftLessons(2)">שני שיעורים</button>
+      </div>
+      <div class="btn-row">
+        <button class="btn-primary" style="flex:1;" onclick="confirmAddClass()">צור כיתה</button>
+        <button class="btn-secondary" style="flex:1;" onclick="closeAddClassModal()">ביטול</button>
+      </div>
+    </div>
+  </div>`;
+}
+function deleteClassPrompt(id){
+  if(!confirm('למחוק את הכיתה וכל הנתונים שלה? פעולה זו אינה הפיכה.')) return;
+  delete DB.classes[id];
+  if(DB.activeClassId===id) DB.activeClassId = Object.keys(DB.classes)[0];
+  saveDB(); render();
+}
+function downloadBackup(){
+  const blob = new Blob([JSON.stringify(DB,null,2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `attendance-backup-${todayISO()}.json`;
+  document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(url);
+}
+
+/* ===================== EXPORT / SHARE ===================== */
+function formatDateHeShort(iso){
+  return hebrewDateStr(isoToDate(iso));
+}
+async function renderExportAndCapture(innerHtml, filenameBase, mode, action='share'){
+  const tpl = document.getElementById('exportTemplate');
+  tpl.innerHTML = innerHtml;
+  tpl.style.top = '0px'; tpl.style.right='0px'; tpl.style.zIndex='-1';
+  await new Promise(r=>setTimeout(r,50));
+  const canvas = await html2canvas(tpl, {scale:2, backgroundColor:'#ffffff'});
+  tpl.style.top='-9999px';
+  if(mode==='image'){
+    if(action==='print'){ printImageDataUrl(canvas.toDataURL('image/png')); return; }
+    canvas.toBlob(async blob=>{
+      if(action==='download'){ forceDownload(blob, `${filenameBase}.png`); }
+      else { await shareOrDownload(blob, `${filenameBase}.png`, 'image/png'); }
+    });
+  } else {
+    const imgData = canvas.toDataURL('image/png');
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF({orientation:'p', unit:'pt', format:'a4'});
+    const pageWidth = pdf.internal.pageSize.getWidth();
+    const imgWidth = pageWidth - 40;
+    const imgHeight = canvas.height * (imgWidth/canvas.width);
+    pdf.addImage(imgData, 'PNG', 20, 20, imgWidth, imgHeight);
+    if(action==='print'){ pdf.autoPrint(); window.open(pdf.output('bloburl')); return; }
+    const blob = pdf.output('blob');
+    if(action==='download'){ forceDownload(blob, `${filenameBase}.pdf`); }
+    else { await shareOrDownload(blob, `${filenameBase}.pdf`, 'application/pdf'); }
+  }
+}
+function forceDownload(blob, filename){
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href=url; a.download=filename;
+  document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(url);
+}
+function printImageDataUrl(dataUrl){
+  const w = window.open('', '_blank');
+  if(!w){ showToast('יש לאפשר חלונות קופצים כדי להדפיס'); return; }
+  w.document.write(`<html><head><title>הדפסה</title></head><body style="margin:0;"><img src="${dataUrl}" style="width:100%;" onload="window.print();"></body></html>`);
+  w.document.close();
+}
+async function shareOrDownload(blob, filename, mimeType){
+  try{
+    const file = new File([blob], filename, {type:mimeType});
+    if(navigator.canShare && navigator.canShare({files:[file]})){
+      await navigator.share({files:[file], title:filename});
+      return;
+    }
+  }catch(e){ /* fall through */ }
+  forceDownload(blob, filename);
+}
+
+function buildDayRows(iso){
+  const cls = getClass();
+  const lessons = lessonsList();
+  return cls.students.map(s=>{
+    const day = cls.attendance[iso] || {};
+    const rec = day[s.id] || {};
+    const cells = lessons.map(lesson=>{
+      const e = normalizeEntry(rec[lesson]);
+      return {lesson, label:lessonLabel(lesson), status:attendanceLabel(e), noteText:e.noteText||'', noteType:e.noteType};
+    });
+    return {studentId:s.id, name:s.name, cells};
+  });
+}
+function exportDayExcel(iso){
+  const lessons = lessonsList();
+  const rows = buildDayRows(iso);
+  const header = ['תלמיד'];
+  lessons.forEach(l=>{ header.push(lessonLabel(l), `הערה ${lessonLabel(l)}`); });
+  const data = [header, ...rows.map(r=>{
+    const line=[r.name];
+    r.cells.forEach(c=>{ line.push(c.status, c.noteText); });
+    return line;
+  })];
+  const ws = XLSX.utils.aoa_to_sheet(data);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'נוכחות');
+  XLSX.writeFile(wb, `נוכחות-${iso}.xlsx`);
+}
+function buildDayTextAll(iso){
+  const rows = buildDayRows(iso);
+  return rows.map(r=>{
+    const allAbsent = r.cells.every(c=>!c.status || c.status==='לא הגיע');
+    if(allAbsent){
+      const noteBits = r.cells.filter(c=>c.noteText).map(c=>`${noteLabel(c.noteType)}: ${c.noteText}`);
+      return `${r.name}: לא היה${noteBits.length?' ('+noteBits.join(', ')+')':''}`;
+    }
+    const parts = r.cells.map(c=>{
+      let seg = `${c.label} - ${c.status}`;
+      if(c.noteText) seg += ` (${noteLabel(c.noteType)}: ${c.noteText})`;
+      return seg;
+    });
+    return `${r.name}: ${parts.join(', ')}`;
+  }).join('\n');
+}
+function buildDayTextAbsent(iso){
+  const cls = getClass();
+  const lessons = lessonsList();
+  const day = cls.attendance[iso] || {};
+  if(lessons.length===1){
+    const names = cls.students.filter(s=>{
+      const e = normalizeEntry(day[s.id]&&day[s.id].l1);
+      return !e.arrived;
+    }).map(s=>s.name);
+    return names.length ? `לא הגיעו:\n${names.join('\n')}` : 'כולם הגיעו היום 🎉';
+  }
+  const wholeDay=[];
+  const perLessonMissing={}; lessons.forEach(l=>perLessonMissing[l]=[]);
+  cls.students.forEach(s=>{
+    const rec = day[s.id]||{};
+    const missing = lessons.filter(l=>{ const e=normalizeEntry(rec[l]); return !e.arrived; });
+    if(missing.length===lessons.length){ wholeDay.push(s.name); }
+    else{ missing.forEach(l=>perLessonMissing[l].push(s.name)); }
+  });
+  const blocks=[];
+  if(wholeDay.length) blocks.push(`לא הגיעו כל היום:\n${wholeDay.join('\n')}`);
+  lessons.forEach(l=>{ if(perLessonMissing[l].length) blocks.push(`לא הגיעו ל${lessonLabel(l)}:\n${perLessonMissing[l].join('\n')}`); });
+  return blocks.length ? blocks.join('\n\n') : 'כולם הגיעו היום לכל השיעורים 🎉';
+}
+function exportDay(mode, isoOverride, action='share'){
+  const iso = isoOverride || UI.date;
+  if(mode==='excel'){ exportDayExcel(iso); return; }
+  const cls = getClass();
+  const d = isoToDate(iso);
+  const lessons = lessonsList();
+  const rows = buildDayRows(iso);
+  const rowsHtml = rows.map(r=>{
+    const cellsHtml = r.cells.map(c=>`<td>${c.status}${c.noteText?'<br><small>'+noteIcon(c.noteType)+' '+escapeHtml(c.noteText)+'</small>':''}</td>`).join('');
+    return `<tr><td>${escapeHtml(r.name)}</td>${cellsHtml}</tr>`;
+  }).join('');
+  const headerCells = lessons.map(l=>`<th>${lessonLabel(l)}</th>`).join('');
+  const html = `
+    <h2>נוכחות יומית — ${escapeHtml(cls.name)}</h2>
+    <div class="sub">${d.toLocaleDateString('he-IL',{weekday:'long',day:'numeric',month:'numeric',year:'numeric'})} · ${hebrewDateStr(d)}</div>
+    <table><thead><tr><th>תלמיד</th>${headerCells}</tr></thead><tbody>${rowsHtml}</tbody></table>`;
+  renderExportAndCapture(html, `נוכחות-${iso}`, mode, action);
+}
+function exportSummary(mode, action='share'){
+  const cls = getClass();
+  const range = UI.summaryMode==='week' ? getWeekRange(UI.summaryRef) : getMonthRange(UI.summaryRef);
+  const stats = computeSummary(range[0], range[1]);
+  if(mode==='excel'){
+    const data = [['תלמיד','נכח','איחור','נעדר','אחוז נוכחות','הערות טובות','הערות','הערות רעות']];
+    cls.students.forEach(s=>{
+      const st = stats[s.id];
+      const attended = st.present+st.late;
+      const pct = st.totalLessons>0 ? Math.round((attended/st.totalLessons)*100) : 0;
+      data.push([s.name, st.present, st.late, st.absent, pct+'%', st.good, st.neutral, st.bad]);
+    });
+    const ws = XLSX.utils.aoa_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'סיכום');
+    XLSX.writeFile(wb, `סיכום-${UI.summaryMode}-${range[0]}.xlsx`);
+    return;
+  }
+  const rows = cls.students.map(s=>{
+    const st = stats[s.id];
+    const attended = st.present+st.late;
+    const pct = st.totalLessons>0 ? Math.round((attended/st.totalLessons)*100) : 0;
+    return `<tr>
+      <td>${escapeHtml(s.name)}</td>
+      <td>${st.present}</td><td>${st.late}</td><td>${st.absent}</td>
+      <td>${st.totalLessons>0?pct+'%':'-'}</td>
+      <td>🟢${st.good} ⚪${st.neutral} 🔴${st.bad}</td>
+    </tr>`;
+  }).join('');
+  const html = `
+    <h2>סיכום ${UI.summaryMode==='week'?'שבועי':'חודשי'} — ${escapeHtml(cls.name)}</h2>
+    <div class="sub">${formatDateHeShort(range[0])} – ${formatDateHeShort(range[1])}</div>
+    <table><thead><tr><th>תלמיד</th><th>נכח</th><th>איחור</th><th>נעדר</th><th>אחוז</th><th>הערות</th></tr></thead>
+    <tbody>${rows}</tbody></table>`;
+  renderExportAndCapture(html, `סיכום-${UI.summaryMode}-${range[0]}`, mode, action);
+}
+function buildPersonalReportText(studentId, range){
+  const cls = getClass();
+  const student = cls.students.find(s=>s.id===studentId);
+  const rows = collectPersonalReport(studentId, range[0], range[1]);
+  const lines = rows.map(r=>{
+    const lessonPart = r.lessonsInfo.map(li=>`${li.label}: ${li.status}${li.noteText?` (${noteLabel(li.noteType)}: ${li.noteText})`:''}`).join(', ');
+    const examPart = r.examsToday.length ? ' | ' + r.examsToday.map(ex=>`מבחן: ${ex.title}${ex.scores[studentId]!=null?` (${ex.scores[studentId]})`:''}`).join(', ') : '';
+    return `${formatDateHeShort(r.date)}: ${lessonPart}${examPart}`;
+  });
+  return `${student.name}\n${lines.join('\n')}`;
+}
+function exportPersonalReport(mode, studentId, range, action='share'){
+  const cls = getClass();
+  const student = cls.students.find(s=>s.id===studentId);
+  const rows = collectPersonalReport(studentId, range[0], range[1]);
+  const rowsHtml = rows.map(r=>{
+    const lessonPart = r.lessonsInfo.map(li=>`${li.label}: ${li.status}`).join('<br>');
+    const notePart = r.lessonsInfo.filter(li=>li.noteText).map(li=>`${noteIcon(li.noteType)} ${escapeHtml(li.noteText)}`).join('<br>') || '-';
+    const examPart = r.examsToday.map(ex=>`${escapeHtml(ex.title)}${ex.scores[studentId]!=null?': '+ex.scores[studentId]:''}`).join('<br>') || '-';
+    return `<tr><td>${formatDateHeShort(r.date)}</td><td>${lessonPart}</td><td>${notePart}</td><td>${examPart}</td></tr>`;
+  }).join('');
+  const html = `
+    <h2>דוח אישי — ${escapeHtml(student.name)}</h2>
+    <div class="sub">${formatDateHeShort(range[0])} – ${formatDateHeShort(range[1])}</div>
+    <table><thead><tr><th>תאריך</th><th>נוכחות</th><th>הערות</th><th>מבחנים</th></tr></thead>
+    <tbody>${rowsHtml}</tbody></table>`;
+  renderExportAndCapture(html, `דוח-אישי-${student.name}-${range[0]}`, mode, action);
+}
+function buildNotesFilteredText(studentId, noteType, range){
+  const cls = getClass();
+  const student = cls.students.find(s=>s.id===studentId);
+  const notes = collectStudentNotes(studentId, range[0], range[1]).filter(n=>n.type===noteType);
+  if(!notes.length) return `${student.name}: אין הערות מסוג זה בטווח.`;
+  const lines = notes.map(n=>`${formatDateHeShort(n.date)} (${n.lesson}): ${n.text}`);
+  return `${student.name}:\n${lines.join('\n')}`;
+}
+function exportNotesFiltered(mode, studentId, noteType, range, action='share'){
+  const cls = getClass();
+  const student = cls.students.find(s=>s.id===studentId);
+  const notes = collectStudentNotes(studentId, range[0], range[1]).filter(n=>n.type===noteType);
+  const rowsHtml = notes.map(n=>`<tr><td>${formatDateHeShort(n.date)}</td><td>${n.lesson}</td><td>${escapeHtml(n.text)}</td></tr>`).join('') || `<tr><td colspan="3">אין הערות</td></tr>`;
+  const html = `
+    <h2>הערות ${noteIcon(noteType)} ${noteTypeTitle(noteType)} — ${escapeHtml(student.name)}</h2>
+    <div class="sub">${formatDateHeShort(range[0])} – ${formatDateHeShort(range[1])}</div>
+    <table><thead><tr><th>תאריך</th><th>שיעור</th><th>הערה</th></tr></thead><tbody>${rowsHtml}</tbody></table>`;
+  renderExportAndCapture(html, `הערות-${student.name}-${range[0]}`, mode, action);
+}
+function buildAllNotesText(studentId, range){
+  const cls = getClass();
+  const student = cls.students.find(s=>s.id===studentId);
+  const notes = collectStudentNotes(studentId, range[0], range[1]);
+  if(!notes.length) return `${student.name}: אין הערות בטווח.`;
+  const lines = notes.map(n=>`${noteIcon(n.type)} ${formatDateHeShort(n.date)} (${n.lesson}): ${n.text}`);
+  return `${student.name}:\n${lines.join('\n')}`;
+}
+function exportAllNotes(mode, studentId, range, action='share'){
+  const cls = getClass();
+  const student = cls.students.find(s=>s.id===studentId);
+  const notes = collectStudentNotes(studentId, range[0], range[1]);
+  const rowsHtml = notes.map(n=>`<tr><td>${formatDateHeShort(n.date)}</td><td>${n.lesson}</td><td>${noteIcon(n.type)}</td><td>${escapeHtml(n.text)}</td></tr>`).join('') || `<tr><td colspan="4">אין הערות</td></tr>`;
+  const html = `
+    <h2>כל ההערות — ${escapeHtml(student.name)}</h2>
+    <div class="sub">${formatDateHeShort(range[0])} – ${formatDateHeShort(range[1])}</div>
+    <table><thead><tr><th>תאריך</th><th>שיעור</th><th>סוג</th><th>הערה</th></tr></thead><tbody>${rowsHtml}</tbody></table>`;
+  renderExportAndCapture(html, `כל-ההערות-${student.name}-${range[0]}`, mode, action);
+}
+function buildExamResultsText(examId){
+  const cls = getClass();
+  const ex = cls.exams.find(e=>e.id===examId);
+  const lines = cls.students.map(s=>{
+    const score = ex.scores[s.id];
+    const effort = (ex.effort && ex.effort[s.id]) || '';
+    const parts = [];
+    if(score!=null) parts.push(String(score));
+    if(effort) parts.push(effort);
+    return `*${s.name}:* ${parts.length?parts.join(' '):'לא עשה'}`;
+  });
+  return `${ex.title} (${hebrewDateStr(isoToDate(ex.date))})\n${lines.join('\n')}`;
+}
+function exportExamResults(mode, examId, action='share'){
+  const cls = getClass();
+  const ex = cls.exams.find(e=>e.id===examId);
+  const rowsHtml = cls.students.map(s=>`<tr><td><b>${escapeHtml(s.name)}</b></td><td>${ex.scores[s.id]??'-'}</td><td>${escapeHtml((ex.effort&&ex.effort[s.id])||'-')}</td></tr>`).join('');
+  const html = `
+    <h2>${escapeHtml(ex.title)}</h2>
+    <div class="sub">${hebrewDateStr(isoToDate(ex.date))}</div>
+    <table><thead><tr><th>תלמיד</th><th>ציון</th><th>השקעה</th></tr></thead><tbody>${rowsHtml}</tbody></table>`;
+  renderExportAndCapture(html, `מבחן-${ex.title}-${ex.date}`, mode, action);
+}
+function buildStudentGradesText(studentId){
+  const cls = getClass();
+  const student = cls.students.find(s=>s.id===studentId);
+  const examsSorted = cls.exams.slice().sort((a,b)=>b.date.localeCompare(a.date));
+  const lines = examsSorted.map(ex=>{
+    const score = ex.scores[studentId];
+    const effort = (ex.effort && ex.effort[studentId]) || '';
+    const parts = [];
+    if(score!=null) parts.push(String(score));
+    if(effort) parts.push(effort);
+    return `${ex.title}: ${parts.length?parts.join(' '):'לא עשה'}`;
+  });
+  return `*${student.name}:*\n${lines.join('\n')}`;
+}
+function exportStudentGrades(mode, studentId, action='share'){
+  const cls = getClass();
+  const student = cls.students.find(s=>s.id===studentId);
+  const examsSorted = cls.exams.slice().sort((a,b)=>b.date.localeCompare(a.date));
+  const rowsHtml = examsSorted.map(ex=>{
+    const score = ex.scores[studentId];
+    const effort = (ex.effort && ex.effort[studentId]) || '';
+    return `<tr><td>${escapeHtml(ex.title)}</td><td>${hebrewDateStr(isoToDate(ex.date))}</td><td>${score!=null?score:'לא עשה'}</td><td>${escapeHtml(effort||'-')}</td></tr>`;
+  }).join('') || `<tr><td colspan="4">אין עדיין מבחנים</td></tr>`;
+  const html = `
+    <h2>כל הציונים — ${escapeHtml(student.name)}</h2>
+    <table><thead><tr><th>מבחן</th><th>תאריך</th><th>ציון</th><th>השקעה</th></tr></thead><tbody>${rowsHtml}</tbody></table>`;
+  renderExportAndCapture(html, `ציונים-${student.name}`, mode, action);
+}
+
+/* -------- generic share menu -------- */
+function openShareMenu(context){ UI.shareMenu=context; render(); }
+function closeShareMenu(){ UI.shareMenu=null; render(); }
+function shareButtonRow(label, formatArg){
+  return `
+  <div style="position:relative;margin-bottom:8px;">
+    <button class="btn-secondary" style="width:100%;" onclick="runShare(${formatArg})">${label}</button>
+    <button class="mini-share-icon-inset left" onclick="runShare(${formatArg}, 'download')" title="הורדה">⬇️</button>
+    <button class="mini-share-icon-inset right" onclick="runShare(${formatArg}, 'print')" title="הדפסה">🖨️</button>
+  </div>`;
+}
+function renderShareMenuModal(){
+  if(!UI.shareMenu) return '';
+  const ctx = UI.shareMenu;
+  let buttons = '';
+  if(ctx.kind==='day'){
+    buttons = `
+      ${shareButtonRow('📷 תמונה', "'image'")}
+      ${shareButtonRow('📄 מסמך (PDF)', "'pdf'")}
+      <button class="btn-secondary" style="width:100%;margin-bottom:8px;" onclick="runShare('textAll')">📝 העתק את כל הרשימה כטקסט</button>
+      <button class="btn-secondary" style="width:100%;margin-bottom:8px;" onclick="runShare('textAbsent')">📝 העתק רק את מי שלא הגיע</button>
+      <button class="btn-secondary" style="width:100%;" onclick="runShare('excel')">📊 אקסל</button>
+    `;
+  } else {
+    buttons = `
+      ${shareButtonRow('📷 תמונה', "'image'")}
+      ${shareButtonRow('📄 מסמך (PDF)', "'pdf'")}
+      <button class="btn-secondary" style="width:100%;" onclick="runShare('text')">📝 העתק כטקסט</button>
+    `;
+  }
+  return `
+  <div class="modal-bg top" onclick="if(event.target===this) closeShareMenu()">
+    <div class="modal-box">
+      <h3>שיתוף</h3>
+      ${buttons}
+      <button class="btn-secondary" style="width:100%;margin-top:8px;" onclick="closeShareMenu()">ביטול</button>
+    </div>
+  </div>`;
+}
+function runShare(format, action='share'){
+  const ctx = UI.shareMenu;
+  closeShareMenu();
+  if(!ctx) return;
+  if(ctx.kind==='day'){
+    if(format==='textAll'){ copyText(buildDayTextAll(ctx.iso)); return; }
+    if(format==='textAbsent'){ copyText(buildDayTextAbsent(ctx.iso)); return; }
+    exportDay(format, ctx.iso, action);
+    return;
+  }
+  if(ctx.kind==='personalReport'){
+    if(format==='text'){ copyText(buildPersonalReportText(ctx.studentId, ctx.range)); return; }
+    exportPersonalReport(format, ctx.studentId, ctx.range, action);
+    return;
+  }
+  if(ctx.kind==='notesFiltered'){
+    if(format==='text'){ copyText(buildNotesFilteredText(ctx.studentId, ctx.noteType, ctx.range)); return; }
+    exportNotesFiltered(format, ctx.studentId, ctx.noteType, ctx.range, action);
+    return;
+  }
+  if(ctx.kind==='allNotes'){
+    if(format==='text'){ copyText(buildAllNotesText(ctx.studentId, ctx.range)); return; }
+    exportAllNotes(format, ctx.studentId, ctx.range, action);
+    return;
+  }
+  if(ctx.kind==='examResults'){
+    if(format==='text'){ copyText(buildExamResultsText(ctx.examId)); return; }
+    exportExamResults(format, ctx.examId, action);
+    return;
+  }
+  if(ctx.kind==='studentGrades'){
+    if(format==='text'){ copyText(buildStudentGradesText(ctx.studentId)); return; }
+    exportStudentGrades(format, ctx.studentId, action);
+    return;
+  }
+}
+
+/* ===================== UTIL ===================== */
+function escapeHtml(str){
+  return String(str==null?'':str)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;').replace(/'/g,'&#039;');
+}
+
+/* ===================== INIT ===================== */
+window.addEventListener('pageshow', function(event){
+  if(event.persisted){
+    UI.date = todayISO();
+    render();
+  }
+});
+render();
+</script>
+</body>
+</html>
