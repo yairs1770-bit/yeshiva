@@ -87,7 +87,7 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid 
 .hero-date h1{margin:2px 0 0;font-size:32px;line-height:1.15;font-weight:700;letter-spacing:-.3px;text-wrap:balance;}
 .hero-date h1 .today-tag{display:inline-block;vertical-align:middle;font-size:12px;font-weight:600;color:var(--primary);
   background:var(--primary-pale);padding:4px 10px;border-radius:999px;margin-inline-start:8px;letter-spacing:0;}
-.class-chips{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;margin:0 -16px;padding:2px 16px 4px;}
+.class-chips{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;margin:0 -16px -10px;padding:2px 16px 14px;}
 .class-chips::-webkit-scrollbar{display:none;}
 .class-chip{flex-shrink:0;height:38px;padding:0 16px;border-radius:999px;border:1px solid var(--line);background:var(--surface);
   color:var(--text);font-size:14px;font-weight:500;display:inline-flex;align-items:center;gap:6px;backdrop-filter:blur(12px);}
@@ -759,6 +759,7 @@ function renderEmptyStateScreen(){
 }
 function attachGlobalHandlers(){
   setupStudentReorder();
+  keepActiveClassInView();
   const backupInput = document.getElementById('restoreFileInput');
   if(backupInput){
     backupInput.addEventListener('change', function(e){
@@ -830,6 +831,23 @@ function shiftWeek(n){
   let next = addDaysISO(UI.date, 7*n);
   if(next>todayISO()) next = todayISO();
   UI.date = next; render();
+}
+/* with many classes the chip row scrolls sideways: keep the user's scroll position
+   between redraws, and bring the selected class into view if it is off screen */
+let classChipsScroll = null;
+function keepActiveClassInView(){
+  const row = document.querySelector('.class-chips');
+  if(!row) return;
+  if(classChipsScroll!==null) row.scrollLeft = classChipsScroll;
+  const active = row.querySelector('.class-chip.active');
+  if(active){
+    const r = row.getBoundingClientRect(), a = active.getBoundingClientRect();
+    if(a.left < r.left + 8 || a.right > r.right - 8){
+      row.scrollLeft += (a.left + a.width/2) - (r.left + r.width/2);
+    }
+  }
+  classChipsScroll = row.scrollLeft;
+  row.addEventListener('scroll', ()=>{ classChipsScroll = row.scrollLeft; }, {passive:true});
 }
 function switchClass(id){ DB.activeClassId=id; saveDB(); render(); }
 function shiftDate(n){
