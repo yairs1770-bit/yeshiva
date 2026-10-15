@@ -243,6 +243,14 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid 
   border-bottom:1px solid var(--line);font-size:15px;font-weight:500;}
 .student-row:last-child{border-bottom:none;}
 .student-row .chev{color:var(--text-muted);}
+.student-row.reorderable{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;background:var(--surface-solid);
+  position:relative;transition:transform .18s cubic-bezier(.2,.7,.3,1),box-shadow .15s;}
+.drag-handle{color:var(--outline);display:inline-flex;cursor:grab;touch-action:none;margin-inline-end:-4px;}
+.drag-handle .msi{font-size:20px;}
+#studentReorderList.reordering .student-row{transition:transform .18s cubic-bezier(.2,.7,.3,1);}
+#studentReorderList .student-row.dragging{transition:box-shadow .15s;z-index:5;border-radius:16px;border-bottom-color:transparent;
+  box-shadow:0 10px 28px rgba(44,40,120,.20);cursor:grabbing;}
+#studentReorderList .student-row.dragging .drag-handle{color:var(--primary);}
 .remove-btn{background:none;border:none;color:var(--text-muted);padding:7px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;}
 .remove-btn .msi{font-size:20px;}
 .remove-btn:hover{background:rgba(21,23,46,.06);}
@@ -735,6 +743,7 @@ function renderEmptyStateScreen(){
   </div>`;
 }
 function attachGlobalHandlers(){
+  setupStudentReorder();
   const backupInput = document.getElementById('restoreFileInput');
   if(backupInput){
     backupInput.addEventListener('change', function(e){
@@ -1518,13 +1527,14 @@ function renderSettingsOverlay(){
     <div class="card">
       <h2><span class="section-icon slate">${ic('group')}</span>תלמידים — ${escapeHtml(cls.name)}</h2>
       ${cls.students.length===0 ? `<div class="empty-state">עדיין לא נוספו תלמידים.</div>` :
-        cls.students.map(s=>`
-        <div class="student-row">
-          <span class="name-with-avatar"><span class="mini-avatar" style="background:${avatarColor(s.name)}">${initials(s.name)}</span>${escapeHtml(s.name)}</span>
+        `${cls.students.length>1?'<div class="hint-text" style="margin:-6px 0 6px;">לשינוי הסדר: לחיצה ארוכה על תלמיד וגרירה למעלה או למטה</div>':''}
+        <div id="studentReorderList">${cls.students.map(s=>`
+        <div class="student-row reorderable" data-sid="${s.id}">
+          <span class="name-with-avatar"><span class="drag-handle" title="גרור לשינוי הסדר">${ic('drag_indicator')}</span><span class="mini-avatar" style="background:${avatarColor(s.name)}">${initials(s.name)}</span>${escapeHtml(s.name)}</span>
           ${UI.confirmRemoveStudent===s.id ?
             `<button class="remove-btn confirming" onclick="removeStudent('${s.id}')">למחוק בוודאות?</button>` :
             `<button class="remove-btn" title="הסר תלמיד" onclick="askRemoveStudent('${s.id}')">${ic('close')}</button>`}
-        </div>`).join('')}
+        </div>`).join('')}</div>`}
       <div class="btn-row">
         <input type="text" id="newStudentName" class="input-line" placeholder="שם תלמיד חדש" style="margin-bottom:0;flex:1;" onkeydown="if(event.key==='Enter'){event.preventDefault();addStudentFromInput();}">
         <button class="btn-primary" onclick="addStudentFromInput()">הוסף</button>
@@ -1562,6 +1572,92 @@ function removeStudent(id){
   UI.confirmRemoveStudent=null;
   saveDB(); render();
 }
+/* -------- reorder students: long-press a row (or grab the handle) and drag -------- */
+let reorder = null;
+function setupStudentReorder(){
+  const list = document.getElementById('studentReorderList');
+  if(list) list.addEventListener('pointerdown', onReorderDown);
+}
+function onReorderDown(e){
+  const row = e.target.closest('.student-row[data-sid]');
+  if(!row || e.target.closest('button') || (e.button!==undefined && e.button!==0)) return;
+  const fromHandle = !!e.target.closest('.drag-handle');
+  if(fromHandle) e.preventDefault();
+  const st = {row, list:row.parentElement, startY:e.clientY, y:e.clientY, active:false,
+    overlay:document.querySelector('.settings-overlay')};
+  st.scroll0 = st.overlay ? st.overlay.scrollTop : 0;
+  st.timer = setTimeout(()=>beginReorder(st), fromHandle ? 0 : 380);
+  reorder = st;
+}
+function beginReorder(st){
+  if(reorder!==st) return;
+  st.active = true;
+  st.rows = [...st.list.querySelectorAll('.student-row[data-sid]')];
+  st.from = st.rows.indexOf(st.row);
+  st.to = st.from;
+  st.rects = st.rows.map(r=>r.getBoundingClientRect());
+  st.h = st.rects[st.from].height;
+  st.row.classList.add('dragging');
+  st.list.classList.add('reordering');
+  if(navigator.vibrate){ try{ navigator.vibrate(12); }catch(err){} }
+  const tick = ()=>{
+    if(reorder!==st || !st.active) return;
+    if(st.overlay){
+      if(st.y < 90) st.overlay.scrollTop -= 8;
+      else if(st.y > window.innerHeight-90) st.overlay.scrollTop += 8;
+    }
+    updateReorder(st);
+    requestAnimationFrame(tick);
+  };
+  requestAnimationFrame(tick);
+}
+function updateReorder(st){
+  const scrollDelta = st.overlay ? st.overlay.scrollTop - st.scroll0 : 0;
+  const t = st.y - st.startY + scrollDelta;
+  st.row.style.transform = `translateY(${t}px)`;
+  const center = st.rects[st.from].top + st.h/2 + t;
+  let to = st.from;
+  st.rects.forEach((rc,i)=>{
+    const mid = rc.top + rc.height/2;
+    if(i<st.from && center<mid) to = Math.min(to,i);
+    if(i>st.from && center>mid) to = Math.max(to,i);
+  });
+  st.to = to;
+  st.rows.forEach((r,i)=>{
+    if(i===st.from) return;
+    let shift = 0;
+    if(st.from<i && i<=to) shift = -st.h;
+    else if(to<=i && i<st.from) shift = st.h;
+    r.style.transform = shift ? `translateY(${shift}px)` : '';
+  });
+}
+function endReorder(){
+  const st = reorder;
+  if(!st) return;
+  clearTimeout(st.timer);
+  reorder = null;
+  if(!st.active) return;
+  st.active = false;
+  const cls = getClass();
+  if(cls && st.to!==st.from){
+    const [moved] = cls.students.splice(st.from, 1);
+    cls.students.splice(st.to, 0, moved);
+    saveDB();
+  }
+  render();
+}
+document.addEventListener('pointermove', e=>{
+  const st = reorder;
+  if(!st) return;
+  st.y = e.clientY;
+  if(!st.active && Math.abs(e.clientY-st.startY)>8){ clearTimeout(st.timer); reorder = null; }
+});
+document.addEventListener('pointerup', endReorder);
+document.addEventListener('pointercancel', endReorder);
+// while dragging on a phone, stop the page from scrolling under the finger
+document.addEventListener('touchmove', e=>{ if(reorder && reorder.active) e.preventDefault(); }, {passive:false});
+document.addEventListener('contextmenu', e=>{ if(reorder) e.preventDefault(); });
+
 function addStudentFromInput(){
   const input = document.getElementById('newStudentName');
   const name = input.value.trim();
