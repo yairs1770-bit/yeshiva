@@ -13,9 +13,6 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700&family=Heebo:wght@400;500;700&display=swap" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,400,0..1,0&display=block" rel="stylesheet">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
 <style>
@@ -1740,10 +1737,40 @@ function downloadBackup(){
 }
 
 /* ===================== EXPORT / SHARE ===================== */
+/* export libraries are heavy, so they load only when an export needs them
+   (and quietly in the background once the app is idle) instead of on startup */
+const EXPORT_LIBS = {
+  html2canvas: {url:'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js', ready:()=>window.html2canvas},
+  jspdf: {url:'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js', ready:()=>window.jspdf},
+  xlsx: {url:'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js', ready:()=>window.XLSX}
+};
+const libLoads = {};
+function loadLib(name){
+  const lib = EXPORT_LIBS[name];
+  if(lib.ready()) return Promise.resolve();
+  if(!libLoads[name]){
+    libLoads[name] = new Promise((resolve, reject)=>{
+      const sc = document.createElement('script');
+      sc.src = lib.url;
+      sc.onload = ()=>{ if(lib.ready()) resolve(); else { delete libLoads[name]; sc.remove(); reject(new Error('not loaded: '+name)); } };
+      sc.onerror = ()=>{ delete libLoads[name]; reject(new Error('load failed: '+name)); };
+      document.head.appendChild(sc);
+    });
+  }
+  return libLoads[name];
+}
+async function ensureLibs(...names){
+  try{ await Promise.all(names.map(loadLib)); return true; }
+  catch(e){ showToast('אין חיבור לאינטרנט - לא ניתן לייצא כרגע'); return false; }
+}
+window.addEventListener('load', ()=>{
+  setTimeout(()=>{ Object.keys(EXPORT_LIBS).forEach(n=>loadLib(n).catch(()=>{})); }, 4000);
+});
 function formatDateHeShort(iso){
   return hebrewDateStr(isoToDate(iso));
 }
 async function renderExportAndCapture(innerHtml, filenameBase, mode, action='share'){
+  if(!await ensureLibs(...(mode==='image' ? ['html2canvas'] : ['html2canvas','jspdf']))) return;
   const tpl = document.getElementById('exportTemplate');
   tpl.innerHTML = innerHtml;
   tpl.style.top = '0px'; tpl.style.right='0px'; tpl.style.zIndex='-1';
@@ -1807,7 +1834,8 @@ function buildDayRows(iso){
     return {studentId:s.id, name:s.name, cells};
   });
 }
-function exportDayExcel(iso){
+async function exportDayExcel(iso){
+  if(!await ensureLibs('xlsx')) return;
   const lessons = lessonsList();
   const rows = buildDayRows(iso);
   const header = ['תלמיד'];
@@ -1880,11 +1908,12 @@ function exportDay(mode, isoOverride, action='share'){
     <table><thead><tr><th>תלמיד</th>${headerCells}</tr></thead><tbody>${rowsHtml}</tbody></table>`;
   renderExportAndCapture(html, `נוכחות-${iso}`, mode, action);
 }
-function exportSummary(mode, action='share'){
+async function exportSummary(mode, action='share'){
   const cls = getClass();
   const range = UI.summaryMode==='week' ? getWeekRange(UI.summaryRef) : getMonthRange(UI.summaryRef);
   const stats = computeSummary(range[0], range[1]);
   if(mode==='excel'){
+    if(!await ensureLibs('xlsx')) return;
     const data = [['תלמיד','נכח','איחור','נעדר','אחוז נוכחות','הערות טובות','הערות','הערות רעות']];
     cls.students.forEach(s=>{
       const st = stats[s.id];
