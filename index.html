@@ -341,7 +341,10 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid 
 @keyframes slideUp{from{transform:translateY(40px);opacity:.4;}to{transform:translateY(0);opacity:1;}}
 .modal-box{background:var(--surface-solid);border-radius:28px 28px 0 0;padding:12px 20px calc(24px + env(safe-area-inset-bottom,0px));
   max-width:560px !important;width:100%;box-shadow:var(--shadow-lg);animation:slideUp .22s cubic-bezier(.2,.8,.2,1);max-height:88vh;overflow-y:auto;}
-.modal-box::before{content:'';display:block;width:40px;height:5px;border-radius:5px;background:var(--surface-high);margin:0 auto 16px;}
+.modal-box::before{content:'';display:block;width:40px;height:5px;border-radius:5px;background:var(--outline);opacity:.6;margin:0 auto 16px;}
+.modal-box{will-change:transform;}
+html,body,.modal-box,.settings-overlay{scrollbar-width:none;}
+html::-webkit-scrollbar,body::-webkit-scrollbar,.modal-box::-webkit-scrollbar,.settings-overlay::-webkit-scrollbar{display:none;width:0;height:0;}
 @media (min-width:700px){
   .modal-bg{align-items:center;padding:24px;}
   .modal-box{border-radius:28px;padding:24px;}
@@ -2060,10 +2063,68 @@ function renderShareMenuModal(){
     <div class="modal-box">
       <h3>שיתוף</h3>
       ${buttons}
-      <div class="btn-row" style="justify-content:flex-end;margin-top:8px;"><button class="btn-secondary" style="border:none;" onclick="closeShareMenu()">ביטול</button></div>
     </div>
   </div>`;
 }
+/* -------- bottom sheets: swipe down to close (phone layout) -------- */
+let sheetDrag = null;
+document.addEventListener('touchstart', e=>{
+  const box = e.target.closest('.modal-box');
+  if(!box || e.touches.length!==1 || window.innerWidth>=700) return;
+  if(e.target.closest('input,textarea,select')) return;
+  const y = e.touches[0].clientY;
+  sheetDrag = {box, bg:box.parentElement, startY:y, lastY:y, lastT:e.timeStamp, v:0, dy:0, moved:false, raf:0};
+}, {passive:true});
+document.addEventListener('touchmove', e=>{
+  const d = sheetDrag;
+  if(!d) return;
+  const y = e.touches[0].clientY;
+  if(!d.moved){
+    // only take over when pulling down from the top of the sheet's content
+    if(y < d.startY || d.box.scrollTop > 0){ sheetDrag = null; return; }
+    if(y - d.startY < 3) return;
+    d.moved = true;
+    d.box.style.animation = 'none';
+    d.box.style.transition = 'none';
+    d.bg.style.transition = 'none';
+  }
+  e.preventDefault();
+  const dt = Math.max(1, e.timeStamp - d.lastT);
+  d.v = 0.6*d.v + 0.4*((y - d.lastY) / dt);
+  d.lastY = y; d.lastT = e.timeStamp;
+  d.dy = Math.max(0, y - d.startY);
+  if(!d.raf) d.raf = requestAnimationFrame(()=>{
+    d.raf = 0;
+    d.box.style.transform = `translate3d(0,${d.dy}px,0)`;
+    d.bg.style.backgroundColor = `rgba(21,23,46,${0.35*Math.max(0,1-d.dy/d.box.offsetHeight)})`;
+  });
+}, {passive:false});
+function endSheetDrag(){
+  const d = sheetDrag;
+  sheetDrag = null;
+  if(!d || !d.moved) return;
+  if(d.raf) cancelAnimationFrame(d.raf);
+  const h = d.box.offsetHeight;
+  const shouldClose = d.dy > Math.min(110, h*0.28) || (d.v > 0.35 && d.dy > 20);
+  if(shouldClose){
+    // keep the finger's speed: the faster the flick, the quicker it leaves
+    const remaining = h - d.dy;
+    const ms = Math.max(110, Math.min(240, remaining / Math.max(d.v, 1.6)));
+    d.box.style.transition = `transform ${ms}ms cubic-bezier(.3,.6,.5,1)`;
+    d.bg.style.transition = `background-color ${ms}ms linear`;
+    d.box.style.transform = `translate3d(0,${h+24}px,0)`;
+    d.bg.style.backgroundColor = 'rgba(21,23,46,0)';
+    setTimeout(()=>{ if(d.bg.isConnected) d.bg.dispatchEvent(new MouseEvent('click',{bubbles:true})); }, ms);
+  } else {
+    d.box.style.transition = 'transform .28s cubic-bezier(.2,.9,.3,1.1)';
+    d.bg.style.transition = 'background-color .28s ease';
+    d.box.style.transform = '';
+    d.bg.style.backgroundColor = '';
+  }
+}
+document.addEventListener('touchend', endSheetDrag);
+document.addEventListener('touchcancel', endSheetDrag);
+
 function runShare(format, action='share'){
   const ctx = UI.shareMenu;
   closeShareMenu();
