@@ -151,16 +151,16 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid 
 .non-school-banner button{margin-top:12px;background:var(--grad);border:none;color:#fff;border-radius:999px;padding:10px 18px;font-size:14px;font-weight:500;}
 
 /* ===== Attendance list ===== */
-.att-table{width:100%;border-collapse:collapse;}
+.att-table{width:100%;border-collapse:collapse;table-layout:fixed;}
 .att-table thead th{padding-bottom:10px;border-bottom:1px solid var(--line);}
 .att-row td{border-bottom:1px solid var(--line);vertical-align:middle;}
 .att-row:last-child td{border-bottom:none;}
 .att-name-cell{padding:14px 2px;font-weight:600;font-size:15px;}
-.att-name-cell .nm{overflow-wrap:anywhere;line-height:1.25;}
-.att-lesson-header{padding:0 4px;text-align:center;font-weight:500;color:var(--text-muted);font-size:12px;width:92px;}
+.att-name-cell .nm{overflow-wrap:break-word;line-height:1.25;min-width:0;}
+.att-lesson-header{padding:0 4px;text-align:center;font-weight:500;color:var(--text-muted);font-size:12px;width:27%;}
 .att-lesson-header .lh{margin-bottom:6px;}
-.mark-all-btn{border:none;background:var(--surface-solid);color:var(--primary);border-radius:999px;padding:6px 12px;
-  font-size:12px;font-weight:600;white-space:nowrap;display:inline-flex;align-items:center;gap:4px;box-shadow:0 1px 3px rgba(21,23,46,.08);}
+.mark-all-btn{border:none;background:var(--surface-solid);color:var(--primary);border-radius:999px;padding:6px 10px;
+  font-size:12px;font-weight:600;white-space:normal;line-height:1.2;text-align:center;justify-content:center;display:inline-flex;align-items:center;gap:4px;box-shadow:0 1px 3px rgba(21,23,46,.08);max-width:100%;}
 .mark-all-btn .msi{font-size:16px;}
 .mark-all-btn.on{background:var(--success-pale);color:var(--success-ink);box-shadow:none;}
 .day-lock-btn{border:none;background:var(--surface-alt);color:var(--text);border-radius:999px;padding:8px 14px 8px 12px;
@@ -177,27 +177,36 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid 
 .split-btn > .btn-secondary{padding:0 48px;}
 .mini-share-icon{width:34px;flex-shrink:0;border:none;background:var(--surface-alt);color:var(--text-muted);border-radius:10px;font-size:13px;}
 .locked-table .arrived-btn,.locked-table .mini-icon-btn,.locked-table .late-pill,.locked-table .mark-all-btn{opacity:.45;}
-.lesson-block{padding:12px 4px;text-align:center;width:92px;}
+.lesson-block{padding:12px 4px;text-align:center;}
 .check-row{display:flex;gap:5px;justify-content:center;flex-wrap:wrap;}
-.arrived-btn{width:100%;height:40px;border:1.5px dashed var(--outline);background:transparent;border-radius:999px;padding:0 8px;
+.arrived-btn{width:100%;height:40px;border:1.5px dashed var(--outline);background:transparent;border-radius:999px;padding:0 4px;
   font-size:14px;font-weight:600;color:var(--text-muted);display:inline-flex;align-items:center;justify-content:center;gap:4px;
   transition:background .15s,color .15s,transform .1s;}
 .arrived-btn:active{transform:scale(.96);}
 .arrived-btn .msi{font-size:18px;}
-.arrived-btn.on{background:var(--success);border:1.5px solid var(--success);color:#fff;box-shadow:0 4px 12px rgba(18,183,106,.32);}
+/* "arrived": pale purple-to-mint blend of the app's gradient, faded in via an overlay so it can animate */
+.arrived-btn{position:relative;isolation:isolate;overflow:hidden;}
+.arrived-btn::before{content:'';position:absolute;inset:-2px;z-index:-1;border-radius:inherit;opacity:0;
+  background:linear-gradient(135deg,#E9EBFF 0%,#DDF1F8 50%,#DAF5EA 100%);}
+.arrived-btn.on{border:1.5px solid transparent;color:#2D7385;}
+.arrived-btn.on::before{opacity:1;}
 .arrived-btn.anim-on{animation:arrivedOn .32s cubic-bezier(.2,.7,.3,1);}
+.arrived-btn.anim-on::before{animation:overlayIn .32s cubic-bezier(.2,.7,.3,1);}
 .arrived-btn.anim-on .msi{animation:checkIn .36s cubic-bezier(.2,.7,.3,1);}
 .arrived-btn.anim-off{animation:arrivedOff .26s ease-out;}
+.arrived-btn.anim-off::before{animation:overlayOut .26s ease-out;}
 @keyframes arrivedOn{
-  from{background-color:rgba(18,183,106,0);border-color:var(--outline);color:var(--text-muted);box-shadow:0 0 0 rgba(18,183,106,0);}
-  to{background-color:var(--success);border-color:var(--success);color:#fff;box-shadow:0 4px 12px rgba(18,183,106,.32);}
+  from{border-color:var(--outline);color:var(--text-muted);}
+  to{border-color:transparent;color:#2D7385;}
 }
+@keyframes overlayIn{from{opacity:0;}to{opacity:1;}}
+@keyframes overlayOut{from{opacity:1;}to{opacity:0;}}
 @keyframes checkIn{from{opacity:0;transform:scale(.6);}to{opacity:1;transform:scale(1);}}
 @keyframes arrivedOff{
-  from{background-color:var(--success);border-color:var(--success);color:#fff;}
-  to{background-color:rgba(18,183,106,0);border-color:var(--outline);color:var(--text-muted);}
+  from{border-color:transparent;color:#2D7385;}
+  to{border-color:var(--outline);color:var(--text-muted);}
 }
-@media (prefers-reduced-motion:reduce){.arrived-btn.anim-on,.arrived-btn.anim-on .msi,.arrived-btn.anim-off{animation:none;}}
+@media (prefers-reduced-motion:reduce){.arrived-btn.anim-on,.arrived-btn.anim-on::before,.arrived-btn.anim-on .msi,.arrived-btn.anim-off,.arrived-btn.anim-off::before{animation:none;}}
 .mini-icon-row{display:flex;gap:4px;justify-content:center;align-items:center;margin-top:8px;min-height:28px;}
 .mini-icon-btn{width:28px;height:28px;border-radius:50%;border:none;background:transparent;display:flex;align-items:center;
   justify-content:center;color:var(--text-muted);position:relative;transition:background .15s,transform .1s;padding:0;}
