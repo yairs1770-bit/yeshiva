@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>בדיקת התקנה</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" href="icon-192.png">
+<style>
+  :root{--bg:#F4F5FB;--card:#fff;--text:#15172E;--muted:#6C7089;--ok:#067647;--okbg:#E3F8EE;--bad:#B42318;--badbg:#FEE9E7;--wait:#8A6200;--waitbg:#FEF6DC;}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:Arial,sans-serif;padding:16px;}
+  h1{font-size:22px;margin:4px 0 6px}
+  p{color:var(--muted);margin:0 0 14px;font-size:14px;line-height:1.5}
+  .row{background:var(--card);border-radius:14px;padding:12px 14px;margin-bottom:8px;display:flex;gap:10px;align-items:flex-start}
+  .tag{flex-shrink:0;font-weight:700;font-size:13px;padding:4px 10px;border-radius:999px;min-width:58px;text-align:center}
+  .ok .tag{background:var(--okbg);color:var(--ok)}
+  .bad .tag{background:var(--badbg);color:var(--bad)}
+  .wait .tag{background:var(--waitbg);color:var(--wait)}
+  .name{font-weight:700;font-size:15px}
+  .info{color:var(--muted);font-size:12px;margin-top:3px;direction:ltr;text-align:right;word-break:break-all}
+  .done{margin-top:14px;font-weight:700;font-size:15px}
+</style>
+</head>
+<body>
+<h1>בדיקת התקנה – ניהול כיתה</h1>
+<p>הדף הזה רק בודק מה נטען בטלפון ומה נתקע. הוא לא משנה שום דבר באפליקציה ולא נוגע בנתונים. חכה עד שכתוב "הבדיקה הסתיימה", ואז צלם את כל המסך.</p>
+<div id="list"></div>
+<div class="done" id="done">בודק... (עד 25 שניות)</div>
+<script>
+const list = document.getElementById('list');
+function row(name){
+  const el = document.createElement('div');
+  el.className = 'row wait';
+  el.innerHTML = '<span class="tag">בודק</span><div><div class="name"></div><div class="info"></div></div>';
+  el.querySelector('.name').textContent = name;
+  list.appendChild(el);
+  return {
+    set(state, info){
+      el.className = 'row ' + state;
+      el.querySelector('.tag').textContent = state==='ok' ? 'תקין' : state==='bad' ? 'בעיה' : 'בודק';
+      el.querySelector('.info').textContent = info || '';
+    }
+  };
+}
+const TIMEOUT = 20000;
+function withTimeout(p, ms){ return Promise.race([p, new Promise((_,rej)=>setTimeout(()=>rej(new Error('נתקע – לא נטען אחרי '+ms/1000+' שניות')), ms))]); }
+const sec = t => ((performance.now()-t)/1000).toFixed(1)+' שנ׳';
+
+// 1. does the main page we get contain the app link? (shows whether an old copy is served)
+async function checkMainPage(path){
+  const r = row('הדף הראשי ('+path+') – גרסה עדכנית');
+  const t = performance.now();
+  try{
+    const res = await withTimeout(fetch(path+'?check='+Date.now(), {cache:'no-store'}), TIMEOUT);
+    const txt = await res.text();
+    const hasLink = txt.includes('rel="manifest" href="manifest.webmanifest"');
+    r.set(res.ok && hasLink ? 'ok':'bad', 'status '+res.status+' · '+sec(t)+' · '+(hasLink?'יש קישור לקובץ האפליקציה':'אין קישור לקובץ האפליקציה – מתקבלת גרסה ישנה או ששונתה'));
+  }catch(e){ r.set('bad', e.message); }
+}
+// 2. app files
+async function checkFile(name, path, test){
+  const r = row(name);
+  const t = performance.now();
+  try{
+    const res = await withTimeout(fetch(path+'?check='+Date.now(), {cache:'no-store'}), TIMEOUT);
+    const type = res.headers.get('content-type')||'';
+    let extra = '';
+    if(test){ extra = await test(res); }
+    r.set(res.ok && !extra.startsWith('!') ? 'ok':'bad', 'status '+res.status+' · '+type+' · '+sec(t)+(extra?' · '+extra.replace(/^!/,''):''));
+  }catch(e){ r.set('bad', e.message); }
+}
+// 3. the outside files the app's page waits for before it counts as "loaded"
+function checkTag(name, kind, url){
+  const r = row(name);
+  const t = performance.now();
+  return withTimeout(new Promise((resolve, reject)=>{
+    const el = document.createElement(kind==='css'?'link':'script');
+    if(kind==='css'){ el.rel='stylesheet'; el.href=url; } else { el.src=url; }
+    el.onload = ()=>resolve(); el.onerror = ()=>reject(new Error('נחסם / שגיאה'));
+    document.head.appendChild(el);
+  }), TIMEOUT).then(()=>r.set('ok', sec(t)+' · '+url)).catch(e=>r.set('bad', e.message+' · '+url));
+}
+function checkFont(name, family){
+  const r = row(name);
+  const t = performance.now();
+  return withTimeout(document.fonts.load('20px "'+family+'"', 'settings').then(f=>{ if(!f.length) throw new Error('לא נטען'); }), TIMEOUT)
+    .then(()=>r.set('ok', sec(t))).catch(e=>r.set('bad', e.message));
+}
+async function checkFetch(name, url){
+  const r = row(name);
+  const t = performance.now();
+  try{ const res = await withTimeout(fetch(url), TIMEOUT); r.set(res.ok?'ok':'bad', 'status '+res.status+' · '+sec(t)); }
+  catch(e){ r.set('bad', e.message); }
+}
+// 4. service worker
+async function checkSW(){
+  const r = row('קובץ השמירה בטלפון (sw.js)');
+  if(!('serviceWorker' in navigator)){ r.set('bad','הדפדפן לא תומך'); return; }
+  try{
+    const reg = await withTimeout(navigator.serviceWorker.register('sw.js'), TIMEOUT);
+    await withTimeout(navigator.serviceWorker.ready, TIMEOUT);
+    const w = reg.active || reg.waiting || reg.installing;
+    r.set(reg.active ? 'ok':'bad', 'מצב: '+(w ? w.state : 'אין')+' · scope '+reg.scope);
+  }catch(e){ r.set('bad', e.message); }
+}
+
+const installRow = row('כרום מציע התקנה (beforeinstallprompt)');
+let installSeen = false;
+window.addEventListener('beforeinstallprompt', e=>{ installSeen = true; installRow.set('ok','כרום מוכן להתקין את הדף הזה'); });
+
+(async()=>{
+  await Promise.all([
+    checkMainPage('./'),
+    checkMainPage('index.html'),
+    checkFile('קובץ האפליקציה (manifest.webmanifest)', 'manifest.webmanifest', async res=>{
+      try{ const j = JSON.parse(await res.text()); return 'שם: '+j.name+' · אייקונים: '+(j.icons||[]).length; }catch(e){ return '!הקובץ לא קריא'; }
+    }),
+    checkFile('אייקון 192', 'icon-192.png'),
+    checkFile('אייקון 512', 'icon-512.png'),
+    checkFile('אייקון לאנדרואיד', 'icon-maskable-512.png'),
+    checkTag('גופנים (Rubik / Heebo)', 'css', 'https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700&family=Heebo:wght@400;500;700&display=swap'),
+    checkTag('אייקונים של העיצוב (Material Symbols)', 'css', 'https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,400,0..1,0&display=block'),
+    checkTag('Firebase – חלק 1', 'js', 'https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js'),
+    checkTag('Firebase – חלק 2', 'js', 'https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js'),
+    checkFetch('לוח החגים (hebcal)', 'https://www.hebcal.com/hebcal?cfg=json&maj=on&min=on&year=2026&month=x&geo=none'),
+    checkSW()
+  ]);
+  // the icon font file itself (loaded after its stylesheet)
+  await checkFont('קובץ הגופן של האייקונים', 'Material Symbols Rounded');
+  setTimeout(()=>{
+    if(!installSeen) installRow.set('bad','כרום לא הציע התקנה לדף הזה');
+    document.getElementById('done').textContent = 'הבדיקה הסתיימה ✔ – צלם את כל המסך ושלח';
+  }, 4000);
+})();
+</script>
+</body>
+</html>
