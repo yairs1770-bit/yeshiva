@@ -2,8 +2,8 @@
 // The app's own files are served from the copy and refreshed in the background,
 // so an update shows up on the next open. Class data never goes through here:
 // Firebase requests are left to the browser untouched.
-const CACHE = 'app-v1';
-const APP_FILES = ['./', 'manifest.json', 'icons/icon-192.png', 'icons/icon-512.png'];
+const CACHE = 'app-v2';
+const APP_FILES = ['./', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png'];
 // libraries and fonts at fixed versions; safe to keep once downloaded
 const LIBRARY_HOSTS = ['fonts.googleapis.com', 'fonts.gstatic.com', 'cdnjs.cloudflare.com'];
 
