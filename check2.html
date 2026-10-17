@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#F4F5FB">
+<link rel="manifest" href="test.webmanifest">
+<link rel="icon" type="image/png" href="test-icon-192.png">
+<meta name="mobile-web-app-capable" content="yes">
+<title>בדיקת אייקון</title>
+<style>
+  body{margin:0;background:#F4F5FB;color:#15172E;font-family:Arial,sans-serif;padding:20px;line-height:1.6}
+  h1{font-size:22px;margin:0 0 10px}
+  .box{background:#fff;border-radius:14px;padding:14px 16px;margin-bottom:12px}
+  img{width:96px;height:96px;border-radius:22px;display:block;margin:6px 0}
+  #status{font-weight:700}
+  .ok{color:#067647}.bad{color:#B42318}
+</style>
+</head>
+<body>
+<h1>בדיקת אייקון – בלי דמות</h1>
+<div class="box">
+  זה דף ניסיון בלבד. הוא לא משנה כלום באפליקציה ולא נוגע בנתונים.
+  האייקון של הדף הזה הוא רק טקסט על רקע סגול:
+  <img src="test-icon-192.png" alt="">
+</div>
+<div class="box">
+  <b>מה לעשות:</b> לחץ ⋮ ← "הוסף למסך הבית" ותסתכל בחלונית:
+  האם מופיע האייקון הסגול עם הכיתוב, או V אפור?
+</div>
+<div class="box">כרום מוכן להתקין? <span id="status">בודק... (חכה כמה שניות)</span></div>
+<script>
+const st = document.getElementById('status');
+window.addEventListener('beforeinstallprompt', ()=>{ st.textContent = 'כן – כרום מוכן להתקין את הדף הזה'; st.className = 'ok'; });
+setTimeout(()=>{ if(!st.className){ st.textContent = 'כרום לא הודיע שהוא מוכן (אם פתחת דרך קישור מתוך אפליקציה אחרת – פתח בכרום עצמו)'; st.className='bad'; } }, 8000);
+try {
+  if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol))
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+} catch (e) {}
+</script>
+</body>
+</html>
