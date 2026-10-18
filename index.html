@@ -60,6 +60,8 @@ h1,h2,h3,.display{font-family:var(--font);}
 button{font-family:inherit;cursor:pointer;}
 input,select,textarea{font-family:inherit;}
 button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--primary);outline-offset:2px;}
+html:not(.app-ready) #app{opacity:0;}
+#app{transition:opacity .22s ease;}
 #app{max-width:760px;margin:0 auto;padding:0 max(16px,env(safe-area-inset-right,0px)) 16px max(16px,env(safe-area-inset-left,0px));}
 
 /* Material Symbols */
@@ -385,6 +387,14 @@ html::-webkit-scrollbar,body::-webkit-scrollbar,.modal-box::-webkit-scrollbar,.s
 </head>
 <body>
 <div id="app"></div>
+<script>
+(function(){
+  var shown = false;
+  function show(){ if(shown) return; shown = true; document.documentElement.classList.add('app-ready'); }
+  try{ if(document.fonts && document.fonts.ready) document.fonts.ready.then(function(){ setTimeout(show, 30); }); }catch(e){}
+  setTimeout(show, 700);
+})();
+</script>
 <div id="exportTemplate"></div>
 <script>
 /* ===================== DATA LAYER (Firebase Firestore) ===================== */
@@ -442,6 +452,7 @@ function saveDB(){
   if(applyingRemoteUpdate) return; // don't write back changes that just arrived from the cloud
   clearTimeout(saveDebounceTimer);
   saveDebounceTimer = setTimeout(()=>{
+    syncedKey = dataKey(DB);
     dbDocRef.set(DB).catch(err=>{ console.error('Firestore save failed', err); });
   }, 400);
 }
@@ -450,8 +461,24 @@ let DB = loadLocalCache();
 
 /* Listen for changes from Firestore (this device and any other device/browser).
    Renders live whenever the shared data changes. */
+/* the last data we loaded or saved, in a key-order independent form, so a cloud copy
+   that matches it doesn't redraw the screen (drawing adds empty placeholders to DB) */
+function dataKey(v){
+  const norm = x => Array.isArray(x) ? x.map(norm)
+    : (x && typeof x==='object') ? Object.keys(x).sort().reduce((o,k)=>{ o[k]=norm(x[k]); return o; }, {})
+    : x;
+  try{ return JSON.stringify(norm(v)); }catch(e){ return null; }
+}
+let syncedKey = dataKey(DB);
 dbDocRef.onSnapshot((snap)=>{
+  const incomingKey = snap.exists ? dataKey(snap.data()) : null;
+  if(incomingKey && incomingKey===syncedKey){
+    // nothing changed: keep the screen as it is (no flicker on open)
+    cloudReady = true;
+    return;
+  }
   if(snap.exists){
+    syncedKey = incomingKey;
     applyingRemoteUpdate = true;
     DB = snap.data();
     try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(DB)); }catch(e){}
