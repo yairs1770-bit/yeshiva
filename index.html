@@ -53,6 +53,8 @@ body{
 }
 body::before{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;
   background:
+    /* top edge in one even colour, the same as the phone's top bar (theme-color), so they join seamlessly */
+    linear-gradient(180deg, #DDE0F9 0px, rgba(221,224,249,0) 150px),
     radial-gradient(520px 380px at 100% -5%, rgba(20,184,212,.20), transparent 70%),
     radial-gradient(520px 420px at -10% 0%, rgba(109,91,255,.20), transparent 70%),
     radial-gradient(500px 400px at 50% 110%, rgba(238,70,188,.10), transparent 70%);}
