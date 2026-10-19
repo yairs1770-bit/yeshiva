@@ -287,6 +287,27 @@ html:not(.app-ready) #app{opacity:0;}
 .score-input,.effort-input{border:1.5px solid var(--border);border-radius:12px;padding:9px;text-align:center;font-size:15px;
   color:var(--text);background:var(--surface-solid);font-variant-numeric:tabular-nums;}
 .score-input{width:66px;font-weight:600;}
+.score-row.has-nb{gap:6px;}
+.score-row.has-nb .score-input{width:52px;padding:9px 4px;}
+.score-row.has-nb .effort-input{width:72px;padding:9px 4px;}
+.score-row.has-nb .nb-input{width:44px;flex-shrink:0;padding:9px 2px;-moz-appearance:textfield;}
+.nb-input::-webkit-inner-spin-button,.nb-input::-webkit-outer-spin-button{-webkit-appearance:none;margin:0;}
+.nb-input::placeholder{font-size:10px;font-weight:600;}
+.nb-toggle{flex-shrink:0;border:1.5px dashed var(--outline);background:transparent;color:var(--text-muted);border-radius:12px;
+  width:44px;height:42px;padding:0;display:inline-flex;flex-direction:column;align-items:center;justify-content:center;gap:0;font-family:inherit;}
+.score-row .nb-toggle .msi{flex:none;font-size:18px;}
+.nb-toggle small{font-size:10px;font-weight:600;line-height:1.1;}
+.nb-option{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:14px;padding:10px 14px;
+  background:var(--surface-alt);border-radius:16px;min-height:56px;}
+.nb-check{display:flex;align-items:center;gap:10px;font-weight:600;font-size:15px;cursor:pointer;}
+.nb-check input{position:absolute;opacity:0;pointer-events:none;}
+.nb-box{width:24px;height:24px;border-radius:8px;border:2px solid var(--outline);display:inline-flex;align-items:center;justify-content:center;color:transparent;background:var(--surface-solid);}
+.nb-box .msi{font-size:18px;}
+.nb-check input:checked + .nb-box{background:var(--grad);border-color:transparent;color:#fff;}
+.nb-points{display:inline-flex;align-items:center;gap:6px;font-size:14px;color:var(--text-muted);font-weight:600;}
+.confirm-text{color:var(--text-muted);font-size:14px;line-height:1.6;margin:-6px 0 6px;}
+.btn-danger{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:48px;border-radius:999px;padding:0 24px;
+  font-size:15px;font-weight:600;border:none;background:var(--danger-pale);color:var(--danger-ink);font-family:inherit;}
 .effort-input{width:88px;}
 .score-input:focus,.effort-input:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-pale);}
 
@@ -765,7 +786,7 @@ function render(){
   }
   app.innerHTML = renderHeader() + renderTabs() + renderBody()
     + renderDetailModal() + renderShareMenuModal() + renderNoteModal()
-    + renderAddClassModal() + renderAddExamModal()
+    + renderAddClassModal() + renderAddExamModal() + renderConfirmSheet()
     + renderSettingsOverlay();
   attachGlobalHandlers();
   if(UI.tab==='attendance' || UI.tab==='summary'){
@@ -1072,7 +1093,7 @@ function renderGradesTab(){
   if(cls.students.length===0){
     return `<div class="card"><div class="empty-state">אין תלמידים בכיתה זו עדיין.</div></div>`;
   }
-  const examsSorted = cls.exams.slice().sort((a,b)=>b.date.localeCompare(a.date));
+  const examsSorted = cls.exams.slice().sort((a,b)=>a.date.localeCompare(b.date));
   const examsHtml = examsSorted.length===0 ? `<div class="empty-state">אין עדיין מבחנים רשומים.</div>` :
     `<div class="exam-list">${examsSorted.map(ex=>{
       const scored = Object.keys(ex.scores||{}).length;
@@ -1093,8 +1114,9 @@ function renderGradesTab(){
     <div class="card">
       <h3>ציונים והשקעה — ${escapeHtml(activeExam.title)}</h3>
       ${cls.students.map(s=>`
-        <div class="score-row">
+        <div class="score-row ${activeExam.notebookPoints?'has-nb':''}">
           <span onclick="openStudentGradesModal('${s.id}')" style="cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px;">${escapeHtml(s.name)}</span>
+          ${activeExam.notebookPoints ? renderNotebookCell(activeExam, s.id) : ''}
           <input type="number" min="0" max="100" class="score-input" value="${activeExam.scores[s.id] ?? ''}"
             placeholder="ציון" onchange="setScore('${activeExam.id}','${s.id}', this.value)">
           <input type="text" class="effort-input" value="${escapeHtml(activeExam.effort[s.id]||'')}"
@@ -1132,7 +1154,36 @@ function startLongPress(examId){
   longPressTimer = setTimeout(()=>{ longPressFired=true; deleteExamConfirm(examId); }, 600);
 }
 function cancelLongPress(){ if(longPressTimer){ clearTimeout(longPressTimer); longPressTimer=null; } }
-function deleteExamConfirm(id){ if(confirm('למחוק את המבחן?')) deleteExam(id); }
+function deleteExamConfirm(id){
+  const ex = getClass().exams.find(e=>e.id===id);
+  if(!ex) return;
+  askConfirm({
+    title: 'למחוק את המבחן?',
+    text: `${ex.title} · ${hebrewDateStr(isoToDate(ex.date))}\nכל הציונים של המבחן יימחקו.`,
+    confirmLabel: 'מחק',
+    onConfirm: ()=>deleteExam(id)
+  });
+}
+/* a confirmation sheet in the app's style (used instead of the phone's system dialog) */
+let confirmAction = null;
+function askConfirm(opts){ UI.confirmSheet = {title:opts.title, text:opts.text||'', confirmLabel:opts.confirmLabel||'אישור'}; confirmAction = opts.onConfirm; render(); }
+function closeConfirmSheet(){ UI.confirmSheet = null; confirmAction = null; render(); }
+function runConfirmSheet(){ const fn = confirmAction; UI.confirmSheet = null; confirmAction = null; if(fn) fn(); else render(); }
+function renderConfirmSheet(){
+  const c = UI.confirmSheet;
+  if(!c) return '';
+  return `
+  <div class="modal-bg top" onclick="if(event.target===this) closeConfirmSheet()">
+    <div class="modal-box">
+      <h3>${ic('delete')}${escapeHtml(c.title)}</h3>
+      ${c.text ? `<div class="confirm-text">${escapeHtml(c.text).replace(/\n/g,'<br>')}</div>` : ''}
+      <div class="btn-row">
+        <button class="btn-danger" style="flex:1;" onclick="runConfirmSheet()">${escapeHtml(c.confirmLabel)}</button>
+        <button class="btn-secondary" style="flex:1;" onclick="closeConfirmSheet()">ביטול</button>
+      </div>
+    </div>
+  </div>`;
+}
 function selectExam(id){
   if(longPressFired){ longPressFired=false; return; }
   UI.activeExamId = (UI.activeExamId===id)?null:id;
@@ -1151,6 +1202,41 @@ function setScore(examId, studentId, value){
   const num = value==='' ? undefined : Math.max(0,Math.min(100,Number(value)));
   if(num===undefined) delete ex.scores[studentId]; else ex.scores[studentId]=num;
   saveDB();
+}
+function hasNotebook(ex, studentId){ return !!(ex.notebook && Object.prototype.hasOwnProperty.call(ex.notebook, studentId)); }
+function renderNotebookCell(ex, studentId){
+  const on = hasNotebook(ex, studentId);
+  const val = on && ex.notebook[studentId]!=null ? ex.notebook[studentId] : '';
+  if(!on) return `<button class="nb-toggle" onclick="toggleNotebook('${ex.id}','${studentId}')">${ic('menu_book','sm')}<small>מחברת</small></button>`;
+  /* left empty → back to the button */
+  return `<input type="number" min="0" max="${ex.notebookPoints}" inputmode="numeric" class="score-input nb-input" id="nb-${studentId}" value="${val}"
+      placeholder="מחברת" onchange="setNotebookPoints('${ex.id}','${studentId}', this.value)"
+      onblur="if(this.value==='') toggleNotebook('${ex.id}','${studentId}')">`;
+}
+function toggleNotebook(examId, studentId){
+  const ex = getClass().exams.find(e=>e.id===examId);
+  if(!ex) return;
+  if(!ex.notebook) ex.notebook = {};
+  const opening = !hasNotebook(ex, studentId);
+  if(opening) ex.notebook[studentId] = null;
+  else delete ex.notebook[studentId];
+  saveDB(); render();
+  if(opening){ const el = document.getElementById('nb-'+studentId); if(el) el.focus(); }
+}
+function setNotebookPoints(examId, studentId, value){
+  const ex = getClass().exams.find(e=>e.id===examId);
+  if(!ex) return;
+  if(!ex.notebook) ex.notebook = {};
+  const max = ex.notebookPoints || 100;
+  ex.notebook[studentId] = value==='' ? null : Math.max(0, Math.min(max, Number(value)));
+  saveDB();
+}
+/* exam result for sharing: the score plus the notebook points, if any */
+function examTotal(ex, studentId){
+  const score = ex.scores[studentId];
+  const nb = (ex.notebook && typeof ex.notebook[studentId]==='number') ? ex.notebook[studentId] : null;
+  if(score==null && nb==null) return null;
+  return (score||0) + (nb||0);
 }
 function setEffort(examId, studentId, value){
   const cls = getClass();
@@ -1184,7 +1270,7 @@ function findHebrewMonthBounds(anchorDate){
   return {start, end, label};
 }
 function openAddExamModal(){
-  UI.examDraft = {title:'', anchorISO: UI.date, selectedISO: UI.date};
+  UI.examDraft = {title:'', anchorISO: UI.date, selectedISO: UI.date, notebook:false, notebookPoints:20};
   render();
 }
 function closeAddExamModal(){ UI.examDraft=null; render(); }
@@ -1202,6 +1288,11 @@ function confirmAddExam(){
   if(!d.title || !d.title.trim()){ showToast('צריך שם למבחן'); return; }
   const cls = getClass();
   const ex = {id:uid(), title:d.title.trim(), date:d.selectedISO, scores:{}, effort:{}};
+  if(d.notebook){
+    const pts = Number(d.notebookPoints);
+    ex.notebookPoints = (isFinite(pts) && pts>0) ? pts : 20;
+    ex.notebook = {};
+  }
   cls.exams.push(ex);
   UI.activeExamId = ex.id;
   UI.examDraft = null;
@@ -1246,6 +1337,16 @@ function renderAddExamModal(){
       ${renderExamCalendarGrid()}
       <div class="cal-selected-label">
         נבחר: ${hebrewDateStr(selD)}
+      </div>
+      <div class="nb-option">
+        <label class="nb-check">
+          <input type="checkbox" ${d.notebook?'checked':''} onchange="UI.examDraft.notebook=this.checked; render();">
+          <span class="nb-box">${ic('check','sm')}</span>
+          יש נקודות על מחברת
+        </label>
+        ${d.notebook ? `<span class="nb-points">
+          <input type="number" min="1" max="100" inputmode="numeric" class="score-input" value="${escapeHtml(String(d.notebookPoints))}" oninput="updateExamDraftSilent('notebookPoints', this.value)">
+          נק׳</span>` : ''}
       </div>
       <div class="btn-row">
         <button class="btn-primary" style="flex:1;" onclick="confirmAddExam()">צור מבחן</button>
@@ -2072,7 +2173,7 @@ function buildExamResultsText(examId){
   const cls = getClass();
   const ex = cls.exams.find(e=>e.id===examId);
   const lines = cls.students.map(s=>{
-    const score = ex.scores[s.id];
+    const score = examTotal(ex, s.id);
     const effort = (ex.effort && ex.effort[s.id]) || '';
     const parts = [];
     if(score!=null) parts.push(String(score));
@@ -2084,7 +2185,7 @@ function buildExamResultsText(examId){
 function exportExamResults(mode, examId, action='share'){
   const cls = getClass();
   const ex = cls.exams.find(e=>e.id===examId);
-  const rowsHtml = cls.students.map(s=>`<tr><td><b>${escapeHtml(s.name)}</b></td><td>${ex.scores[s.id]??'-'}</td><td>${escapeHtml((ex.effort&&ex.effort[s.id])||'-')}</td></tr>`).join('');
+  const rowsHtml = cls.students.map(s=>`<tr><td><b>${escapeHtml(s.name)}</b></td><td>${examTotal(ex, s.id)??'-'}</td><td>${escapeHtml((ex.effort&&ex.effort[s.id])||'-')}</td></tr>`).join('');
   const html = `
     <h2>${escapeHtml(ex.title)}</h2>
     <div class="sub">${hebrewDateStr(isoToDate(ex.date))}</div>
