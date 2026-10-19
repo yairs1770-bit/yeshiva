@@ -535,7 +535,10 @@ let UI = {
 function getClass(){ return DB.classes[DB.activeClassId] || null; }
 function hasAnyClass(){ return Object.keys(DB.classes).length > 0; }
 function lessonsList(){ const cls=getClass(); return (cls && cls.lessonsPerDay===1) ? ['l1'] : ['l1','l2']; }
-function lessonLabel(lesson){ return lesson==='l1' ? 'שיעור ראשון' : 'שיעור שני'; }
+function lessonLabel(lesson){
+  if(lessonsList().length===1) return 'שיעור'; // a single lesson a day has no "first"
+  return lesson==='l1' ? 'שיעור ראשון' : 'שיעור שני';
+}
 
 /* ===================== HEBREW CALENDAR / HOLIDAYS ===================== */
 function gematria(num){
