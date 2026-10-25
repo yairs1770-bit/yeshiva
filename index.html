@@ -335,6 +335,10 @@ html:not(.app-ready) #app{opacity:0;}
 .pct-fill{background:var(--success);height:100%;border-radius:4px;}
 .pct-fill.mid{background:var(--warning);}
 .pct-fill.low{background:var(--danger);}
+.pm-notes{margin-top:16px;border-top:1px solid var(--line);padding-top:6px;}
+.pm-row{padding:10px 0;border-bottom:1px solid var(--line);}
+.pm-name{font-weight:600;margin-bottom:6px;}
+.note-textarea.pm-note{field-sizing:content;min-height:48px;padding:10px 12px;border-radius:14px;resize:none;overflow:hidden;}
 .hint-text{font-size:12px;color:var(--text-muted);margin-top:10px;line-height:1.6;}
 
 .daily-review-row{background:var(--surface-solid);border:1px solid var(--line);border-radius:18px;padding:14px;margin-bottom:10px;}
@@ -1150,11 +1154,110 @@ function renderGradesTab(){
   </div>
   ${scoresBlock}
   ${studentGradesListHtml}
+  ${renderParentMeetingsCard()}
   `;
 }
-function startLongPress(examId){
+/* -------- parent-teacher meeting notes -------- */
+function renderParentMeetingsCard(){
+  const cls = getClass();
+  const meetings = (cls.parentMeetings||[]).slice().sort((a,b)=>a.date.localeCompare(b.date));
+  const listHtml = meetings.length===0 ? `<div class="empty-state">אין עדיין הערות לאסיפת הורים.</div>` :
+    `<div class="exam-list">${meetings.map(m=>{
+      const filled = Object.keys(m.notes||{}).filter(k=>(m.notes[k]||'').trim()).length;
+      return `<div class="exam-item ${UI.activeMeetingId===m.id?'active':''}"
+        onclick="selectMeeting('${m.id}')"
+        onmousedown="startLongPress('${m.id}','meeting')" onmouseup="cancelLongPress()" onmouseleave="cancelLongPress()"
+        ontouchstart="event.preventDefault(); startLongPress('${m.id}','meeting')" ontouchend="cancelLongPress(); selectMeeting('${m.id}')" ontouchcancel="cancelLongPress()">
+        <span>אסיפת הורים — ${hebrewDateStr(isoToDate(m.date))}</span>
+        <span class="exam-hint">${filled}/${cls.students.length} הערות</span>
+      </div>`;
+    }).join('')}</div>`;
+  const active = meetings.find(m=>m.id===UI.activeMeetingId);
+  const notesHtml = active ? `
+    <div class="pm-notes">
+      ${cls.students.map(s=>`
+        <div class="pm-row">
+          <div class="pm-name">${escapeHtml(s.name)}</div>
+          <textarea class="note-textarea pm-note" placeholder="הערה על ${escapeHtml(s.name)}..."
+            oninput="setMeetingNote('${active.id}','${s.id}', this.value); autoGrow(this)">${escapeHtml((active.notes||{})[s.id]||'')}</textarea>
+        </div>`).join('')}
+      <div class="btn-row">
+        <button class="btn-primary" style="width:100%;" onclick="openShareMenu({kind:'meetingNotes', meetingId:'${active.id}'})">${ic('share')}שיתוף</button>
+      </div>
+    </div>` : '';
+  return `
+  <div class="card">
+    <h2><span class="section-icon indigo">${ic('groups')}</span>אסיפת הורים</h2>
+    ${listHtml}
+    ${meetings.length ? '<div class="hint-text">לחיצה ארוכה למחיקה</div>' : ''}
+    <div class="btn-row"><button class="btn-primary" onclick="openAddMeetingModal()">${ic('add')}הערות חדשות לאסיפה</button></div>
+    ${notesHtml}
+  </div>`;
+}
+function selectMeeting(id){
+  if(longPressFired){ longPressFired=false; return; }
+  UI.activeMeetingId = (UI.activeMeetingId===id)?null:id;
+  render();
+  if(UI.activeMeetingId) document.querySelectorAll('.pm-note').forEach(autoGrow);
+}
+function autoGrow(el){ el.style.height='auto'; el.style.height = el.scrollHeight+3+'px'; }
+function setMeetingNote(meetingId, studentId, value){
+  const m = (getClass().parentMeetings||[]).find(x=>x.id===meetingId);
+  if(!m) return;
+  if(!m.notes) m.notes = {};
+  if(value.trim()) m.notes[studentId] = value; else delete m.notes[studentId];
+  saveDB();
+}
+function openAddMeetingModal(){
+  UI.examDraft = {kind:'meeting', title:'', anchorISO: UI.date, selectedISO: UI.date};
+  render();
+}
+function confirmAddMeeting(){
+  const d = UI.examDraft;
+  const cls = getClass();
+  if(!cls.parentMeetings) cls.parentMeetings = [];
+  const m = {id:uid(), date:d.selectedISO, notes:{}};
+  cls.parentMeetings.push(m);
+  UI.activeMeetingId = m.id;
+  UI.examDraft = null;
+  saveDB(); render();
+}
+function deleteMeetingConfirm(id){
+  const m = (getClass().parentMeetings||[]).find(x=>x.id===id);
+  if(!m) return;
+  askConfirm({
+    title: 'למחוק את ההערות לאסיפה?',
+    text: `אסיפת הורים · ${hebrewDateStr(isoToDate(m.date))}\nכל ההערות של האסיפה יימחקו.`,
+    confirmLabel: 'מחק',
+    onConfirm: ()=>{
+      const cls = getClass();
+      cls.parentMeetings = cls.parentMeetings.filter(x=>x.id!==id);
+      if(UI.activeMeetingId===id) UI.activeMeetingId = null;
+      saveDB(); render();
+    }
+  });
+}
+function buildMeetingNotesText(meetingId){
+  const cls = getClass();
+  const m = cls.parentMeetings.find(x=>x.id===meetingId);
+  const lines = cls.students.filter(s=>((m.notes||{})[s.id]||'').trim()).map(s=>`*${s.name}:* ${m.notes[s.id].trim()}`);
+  return `אסיפת הורים (${hebrewDateStr(isoToDate(m.date))})\n${lines.join('\n')}`;
+}
+function exportMeetingNotes(mode, meetingId, action='share'){
+  const cls = getClass();
+  const m = cls.parentMeetings.find(x=>x.id===meetingId);
+  const rowsHtml = cls.students.filter(s=>((m.notes||{})[s.id]||'').trim())
+    .map(s=>`<tr><td><b>${escapeHtml(s.name)}</b></td><td>${escapeHtml(m.notes[s.id].trim()).replace(/\n/g,'<br>')}</td></tr>`).join('')
+    || `<tr><td colspan="2">אין הערות</td></tr>`;
+  const html = `
+    <h2>אסיפת הורים — ${escapeHtml(cls.name)}</h2>
+    <div class="sub">${hebrewDateStr(isoToDate(m.date))}</div>
+    <table><thead><tr><th>תלמיד</th><th>הערה</th></tr></thead><tbody>${rowsHtml}</tbody></table>`;
+  renderExportAndCapture(html, `אסיפת-הורים-${m.date}`, mode, action);
+}
+function startLongPress(id, kind='exam'){
   longPressFired = false;
-  longPressTimer = setTimeout(()=>{ longPressFired=true; deleteExamConfirm(examId); }, 600);
+  longPressTimer = setTimeout(()=>{ longPressFired=true; if(kind==='meeting') deleteMeetingConfirm(id); else deleteExamConfirm(id); }, 600);
 }
 function cancelLongPress(){ if(longPressTimer){ clearTimeout(longPressTimer); longPressTimer=null; } }
 function deleteExamConfirm(id){
@@ -1331,6 +1434,21 @@ function renderAddExamModal(){
   if(!UI.examDraft) return '';
   const d = UI.examDraft;
   const selD = isoToDate(d.selectedISO);
+  if(d.kind==='meeting') return `
+  <div class="modal-bg" onclick="if(event.target===this) closeAddExamModal()">
+    <div class="modal-box" style="max-width:380px;">
+      <h3>אסיפת הורים</h3>
+      <div style="font-size:12px;color:var(--text-muted);margin-bottom:4px;font-weight:500;">בחר תאריך (לוח עברי)</div>
+      ${renderExamCalendarGrid()}
+      <div class="cal-selected-label">
+        נבחר: ${hebrewDateStr(selD)}
+      </div>
+      <div class="btn-row">
+        <button class="btn-primary" style="flex:1;" onclick="confirmAddMeeting()">צור</button>
+        <button class="btn-secondary" style="flex:1;" onclick="closeAddExamModal()">ביטול</button>
+      </div>
+    </div>
+  </div>`;
   return `
   <div class="modal-bg" onclick="if(event.target===this) closeAddExamModal()">
     <div class="modal-box" style="max-width:380px;">
@@ -2349,6 +2467,11 @@ function runShare(format, action='share'){
   if(ctx.kind==='examResults'){
     if(format==='text'){ copyText(buildExamResultsText(ctx.examId)); return; }
     exportExamResults(format, ctx.examId, action);
+    return;
+  }
+  if(ctx.kind==='meetingNotes'){
+    if(format==='text'){ copyText(buildMeetingNotesText(ctx.meetingId)); return; }
+    exportMeetingNotes(format, ctx.meetingId, action);
     return;
   }
   if(ctx.kind==='studentGrades'){
