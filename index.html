@@ -283,6 +283,20 @@ html:not(.app-ready) #app{opacity:0;}
 .exam-item.active{border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-pale);}
 .exam-item .exam-hint{font-size:12px;color:var(--primary);background:var(--primary-pale);font-weight:600;white-space:nowrap;
   padding:4px 10px;border-radius:999px;}
+.scores-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px;}
+.scores-head h3{margin:0;}
+.edit-toggle{flex-shrink:0;height:38px;min-width:38px;border-radius:999px;border:1px solid var(--line);background:var(--surface-solid);
+  color:var(--primary);display:inline-flex;align-items:center;justify-content:center;gap:4px;padding:0 9px;font-family:inherit;font-size:14px;font-weight:600;}
+.edit-toggle .msi{font-size:20px;}
+.edit-toggle.save{background:var(--grad);color:#fff;border-color:transparent;padding:0 14px;}
+.score-view{display:flex;align-items:center;gap:8px;padding:11px 2px;border-bottom:1px solid var(--line);}
+.sv-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;}
+.sv-name{font-weight:600;cursor:pointer;}
+.sv-effort{font-size:13px;color:var(--text-muted);overflow-wrap:break-word;}
+.sv-score{flex-shrink:0;min-width:48px;height:34px;padding:0 10px;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;
+  background:linear-gradient(135deg,#E9EBFF 0%,#DDF1F8 50%,#DAF5EA 100%);color:#2D7385;
+  font-weight:700;font-size:16px;font-variant-numeric:tabular-nums;}
+.sv-score.none{background:var(--surface-alt);color:var(--text-muted);font-weight:500;font-size:13px;}
 .score-row{display:flex;align-items:center;justify-content:space-between;padding:8px 2px;border-bottom:1px solid var(--line);gap:8px;}
 .score-row span{flex:1;overflow-wrap:break-word;font-weight:500;}
 .score-input,.effort-input{border:1.5px solid var(--border);border-radius:12px;padding:9px;text-align:center;font-size:15px;
@@ -291,8 +305,10 @@ html:not(.app-ready) #app{opacity:0;}
 .score-row.has-nb{gap:6px;}
 .score-row.has-nb .score-input{width:52px;padding:9px 4px;}
 .score-row.has-nb .effort-input{width:72px;padding:9px 4px;}
-.score-row.has-nb .nb-input{width:44px;flex-shrink:0;padding:9px 2px;-moz-appearance:textfield;}
-.nb-input::-webkit-inner-spin-button,.nb-input::-webkit-outer-spin-button{-webkit-appearance:none;margin:0;}
+.score-row.has-nb .nb-input{width:44px;flex-shrink:0;padding:9px 2px;}
+/* no up/down arrows in number boxes: type the number */
+.score-input{-moz-appearance:textfield;appearance:textfield;}
+.score-input::-webkit-inner-spin-button,.score-input::-webkit-outer-spin-button{-webkit-appearance:none;margin:0;}
 .nb-input::placeholder{font-size:10px;font-weight:600;}
 .nb-toggle{flex-shrink:0;border:1.5px dashed var(--outline);background:transparent;color:var(--text-muted);border-radius:12px;
   width:44px;height:42px;padding:0;display:inline-flex;flex-direction:column;align-items:center;justify-content:center;gap:0;font-family:inherit;}
@@ -1117,9 +1133,26 @@ function renderGradesTab(){
   const activeExam = cls.exams.find(e=>e.id===UI.activeExamId);
   if(activeExam){
     if(!activeExam.effort) activeExam.effort = {};
-    scoresBlock = `
+    const editing = UI.editingExamId===activeExam.id;
+    const head = `
+      <div class="scores-head">
+        <h3>ציונים והשקעה — ${escapeHtml(activeExam.title)}</h3>
+        ${editing
+          ? `<button class="edit-toggle save" onclick="finishExamEdit()">${ic('check')}שמור</button>`
+          : `<button class="edit-toggle" onclick="startExamEdit('${activeExam.id}')" title="עריכה">${ic('edit')}</button>`}
+      </div>`;
+    const shareBtn = `
+      <div class="btn-row">
+        <button class="btn-primary" style="width:100%;" onclick="openShareMenu({kind:'examResults', examId:'${activeExam.id}'})">${ic('share')}שיתוף תוצאות</button>
+      </div>`;
+    scoresBlock = !editing ? `
     <div class="card">
-      <h3>ציונים והשקעה — ${escapeHtml(activeExam.title)}</h3>
+      ${head}
+      ${cls.students.map(s=>renderScoreView(activeExam, s)).join('')}
+      ${shareBtn}
+    </div>` : `
+    <div class="card">
+      ${head}
       ${cls.students.map(s=>`
         <div class="score-row ${activeExam.notebookPoints?'has-nb':''}">
           <span onclick="openStudentGradesModal('${s.id}')" style="cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px;">${escapeHtml(s.name)}</span>
@@ -1129,9 +1162,7 @@ function renderGradesTab(){
           <input type="text" class="effort-input" value="${escapeHtml(activeExam.effort[s.id]||'')}"
             placeholder="השקעה" onchange="setEffort('${activeExam.id}','${s.id}', this.value)">
         </div>`).join('')}
-      <div class="btn-row">
-        <button class="btn-primary" style="width:100%;" onclick="openShareMenu({kind:'examResults', examId:'${activeExam.id}'})">${ic('share')}שיתוף תוצאות</button>
-      </div>
+      ${shareBtn}
     </div>`;
   }
 
@@ -1309,8 +1340,29 @@ function renderConfirmSheet(){
     </div>
   </div>`;
 }
+/* an exam opens for reading; a new exam, or the pencil, opens it for typing */
+function renderScoreView(ex, s){
+  const score = examTotal(ex, s.id); // score + notebook points
+  const effort = (ex.effort && ex.effort[s.id]) || '';
+  return `
+    <div class="score-view">
+      <div class="sv-main">
+        <span class="sv-name" onclick="openStudentGradesModal('${s.id}')">${escapeHtml(s.name)}</span>
+        ${effort ? `<span class="sv-effort">${escapeHtml(effort)}</span>` : ''}
+      </div>
+      ${score!=null ? `<span class="sv-score">${score}</span>` : `<span class="sv-score none">לא עשה</span>`}
+    </div>`;
+}
+function startExamEdit(id){ UI.editingExamId = id; render(); }
+function finishExamEdit(){
+  // let the box being typed in save first
+  if(document.activeElement && document.activeElement.blur) document.activeElement.blur();
+  UI.editingExamId = null; render();
+}
 function selectExam(id){
   if(longPressFired){ longPressFired=false; return; }
+  if(document.activeElement && document.activeElement.blur) document.activeElement.blur();
+  UI.editingExamId = null;
   UI.activeExamId = (UI.activeExamId===id)?null:id;
   render();
 }
@@ -1420,6 +1472,7 @@ function confirmAddExam(){
   }
   cls.exams.push(ex);
   UI.activeExamId = ex.id;
+  UI.editingExamId = ex.id;
   UI.examDraft = null;
   saveDB(); render();
 }
