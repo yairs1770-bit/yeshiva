@@ -279,6 +279,7 @@ html:not(.app-ready) #app{opacity:0;}
   border-radius:18px;padding:14px 16px;font-size:15px;font-weight:600;cursor:pointer;user-select:none;-webkit-user-select:none;
   -webkit-touch-callout:none;touch-action:manipulation;transition:transform .1s,border-color .15s;}
 .exam-item:active{transform:scale(.98);}
+.exam-item{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;}
 .exam-item.active{border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-pale);}
 .exam-item .exam-hint{font-size:12px;color:var(--primary);background:var(--primary-pale);font-weight:600;white-space:nowrap;
   padding:4px 10px;border-radius:999px;}
@@ -1106,8 +1107,7 @@ function renderGradesTab(){
       const scored = Object.keys(ex.scores||{}).length;
       return `<div class="exam-item ${UI.activeExamId===ex.id?'active':''}"
         onclick="selectExam('${ex.id}')"
-        onmousedown="startLongPress('${ex.id}')" onmouseup="cancelLongPress()" onmouseleave="cancelLongPress()"
-        ontouchstart="event.preventDefault(); startLongPress('${ex.id}')" ontouchend="cancelLongPress(); selectExam('${ex.id}')" ontouchcancel="cancelLongPress()">
+        ${longPressAttrs(ex.id,'exam')}>
         <span>${escapeHtml(ex.title)} — ${hebrewDateStr(isoToDate(ex.date))}</span>
         <span class="exam-hint">${scored}/${cls.students.length} ציונים</span>
       </div>`;
@@ -1166,8 +1166,7 @@ function renderParentMeetingsCard(){
       const filled = Object.keys(m.notes||{}).filter(k=>(m.notes[k]||'').trim()).length;
       return `<div class="exam-item ${UI.activeMeetingId===m.id?'active':''}"
         onclick="selectMeeting('${m.id}')"
-        onmousedown="startLongPress('${m.id}','meeting')" onmouseup="cancelLongPress()" onmouseleave="cancelLongPress()"
-        ontouchstart="event.preventDefault(); startLongPress('${m.id}','meeting')" ontouchend="cancelLongPress(); selectMeeting('${m.id}')" ontouchcancel="cancelLongPress()">
+        ${longPressAttrs(m.id,'meeting')}>
         <span>אסיפת הורים — ${hebrewDateStr(isoToDate(m.date))}</span>
         <span class="exam-hint">${filled}/${cls.students.length} הערות</span>
       </div>`;
@@ -1255,11 +1254,31 @@ function exportMeetingNotes(mode, meetingId, action='share'){
     <table><thead><tr><th>תלמיד</th><th>הערה</th></tr></thead><tbody>${rowsHtml}</tbody></table>`;
   renderExportAndCapture(html, `אסיפת-הורים-${m.date}`, mode, action);
 }
-function startLongPress(id, kind='exam'){
-  longPressFired = false;
-  longPressTimer = setTimeout(()=>{ longPressFired=true; if(kind==='meeting') deleteMeetingConfirm(id); else deleteExamConfirm(id); }, 600);
+/* opening is left to onclick, which the browser skips when the finger scrolls;
+   moving the finger also cancels the long press */
+function longPressAttrs(id, kind){
+  return `onmousedown="startLongPress('${id}','${kind}')" onmouseup="cancelLongPress()" onmouseleave="cancelLongPress()"
+    ontouchstart="startLongPress('${id}','${kind}', event)" ontouchmove="moveLongPress(event)" ontouchend="cancelLongPress()" ontouchcancel="cancelLongPress()"
+    oncontextmenu="event.preventDefault()"`;
 }
-function cancelLongPress(){ if(longPressTimer){ clearTimeout(longPressTimer); longPressTimer=null; } }
+let longPressStart = null, lastTouchTime = 0, longPressFiredAt = 0, longPressReleaseAt = 0;
+// the click that comes when the finger lifts after a long press must not close the sheet that just opened
+document.addEventListener('click', e=>{
+  if(longPressFired && Date.now()-longPressFiredAt < 3000 && Date.now()-longPressReleaseAt < 400){ e.stopPropagation(); e.preventDefault(); longPressFired = false; }
+}, true);
+function startLongPress(id, kind='exam', ev){
+  if(ev && ev.touches){ lastTouchTime = Date.now(); const t = ev.touches[0]; longPressStart = {x:t.clientX, y:t.clientY}; }
+  else if(Date.now()-lastTouchTime < 1000) return; // mouse events the phone adds after a touch
+  longPressFired = false;
+  cancelLongPress();
+  longPressTimer = setTimeout(()=>{ longPressTimer=null; longPressFired=true; longPressFiredAt=Date.now(); if(kind==='meeting') deleteMeetingConfirm(id); else deleteExamConfirm(id); }, 600);
+}
+function moveLongPress(ev){
+  if(!longPressStart || !longPressTimer) return;
+  const t = ev.touches[0];
+  if(Math.abs(t.clientX-longPressStart.x)>10 || Math.abs(t.clientY-longPressStart.y)>10) cancelLongPress();
+}
+function cancelLongPress(){ longPressReleaseAt = Date.now(); if(longPressTimer){ clearTimeout(longPressTimer); longPressTimer=null; } }
 function deleteExamConfirm(id){
   const ex = getClass().exams.find(e=>e.id===id);
   if(!ex) return;
