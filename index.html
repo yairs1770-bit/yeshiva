@@ -294,7 +294,7 @@ html:not(.app-ready) #app{opacity:0;}
 .sv-name{font-weight:600;cursor:pointer;}
 .sv-effort{font-size:13px;color:var(--text-muted);overflow-wrap:break-word;}
 .sv-score{flex-shrink:0;min-width:48px;height:34px;padding:0 10px;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;
-  background:linear-gradient(135deg,#E9EBFF 0%,#DDF1F8 50%,#DAF5EA 100%);color:#2D7385;
+  background:linear-gradient(135deg,#F3F4FF 0%,#ECF7FB 50%,#EBF9F3 100%);color:#1A5363;
   font-weight:700;font-size:16px;font-variant-numeric:tabular-nums;}
 .sv-score.none{background:var(--surface-alt);color:var(--text-muted);font-weight:500;font-size:13px;}
 .score-row{display:flex;align-items:center;justify-content:space-between;padding:8px 2px;border-bottom:1px solid var(--line);gap:8px;}
@@ -356,6 +356,8 @@ html:not(.app-ready) #app{opacity:0;}
 .pm-row{padding:10px 0;border-bottom:1px solid var(--line);}
 .pm-name{font-weight:600;margin-bottom:6px;}
 .note-textarea.pm-note{field-sizing:content;min-height:48px;padding:10px 12px;border-radius:14px;resize:none;overflow:hidden;}
+.wa-number{text-align:center;font-size:12px;color:var(--text-muted);margin-top:8px;direction:rtl;}
+.wa-number button{border:none;background:none;color:var(--primary);font-weight:600;font-size:12px;padding:4px;}
 .hint-text{font-size:12px;color:var(--text-muted);margin-top:10px;line-height:1.6;}
 
 .daily-review-row{background:var(--surface-solid);border:1px solid var(--line);border-radius:18px;padding:14px;margin-bottom:10px;}
@@ -810,7 +812,7 @@ function render(){
   }
   app.innerHTML = renderHeader() + renderTabs() + renderBody()
     + renderDetailModal() + renderShareMenuModal() + renderNoteModal()
-    + renderAddClassModal() + renderAddExamModal() + renderConfirmSheet()
+    + renderAddClassModal() + renderAddExamModal() + renderConfirmSheet() + renderWaNumberSheet()
     + renderSettingsOverlay();
   attachGlobalHandlers();
   if(UI.tab==='attendance' || UI.tab==='summary'){
@@ -1446,8 +1448,15 @@ function findHebrewMonthBounds(anchorDate){
   }
   return {start, end, label};
 }
+/* suggested name for the next exam, e.g. "מבחן רביעי בעיונא" (can be changed) */
+function defaultExamTitle(){
+  const cls = getClass();
+  const n = (cls.exams||[]).length + 1;
+  const ord = ['ראשון','שני','שלישי','רביעי','חמישי','שישי','שביעי','שמיני','תשיעי','עשירי'][n-1];
+  return `${ord ? 'מבחן '+ord : 'מבחן '+n} ב${cls.name}`;
+}
 function openAddExamModal(){
-  UI.examDraft = {title:'', anchorISO: UI.date, selectedISO: UI.date, notebook:false, notebookPoints:20};
+  UI.examDraft = {title:defaultExamTitle(), anchorISO: UI.date, selectedISO: UI.date, notebook:false, notebookPoints:20};
   render();
 }
 function closeAddExamModal(){ UI.examDraft=null; render(); }
@@ -2442,6 +2451,9 @@ function renderShareMenuModal(){
       ${shareButtonRow(ic('image')+'תמונה', "'image'")}
       ${shareButtonRow(ic('picture_as_pdf')+'מסמך (PDF)', "'pdf'")}
       <button class="btn-secondary" style="width:100%;" onclick="runShare('text')">${ic('content_copy')}העתק כטקסט</button>
+      ${ctx.kind==='examResults' ? `
+      <button class="btn-primary" style="width:100%;margin-top:8px;" onclick="sendExamToWhatsApp('${ctx.examId}')">${ic('send')}שלח למענדי בוואטסאפ</button>
+      ${getWaNumber() ? `<div class="wa-number">${escapeHtml(getWaNumber())} · <button onclick="openWaNumberSheet()">שינוי מספר</button></div>` : ''}` : ''}
     `;
   }
   return `
@@ -2551,6 +2563,50 @@ function runShare(format, action='share'){
     exportStudentGrades(format, ctx.studentId, action);
     return;
   }
+}
+
+/* -------- send exam results straight to one WhatsApp chat --------
+   The number is kept only on this phone (never in the code or the shared data). */
+const WA_KEY = 'examWhatsAppNumber';
+function getWaNumber(){ try{ return localStorage.getItem(WA_KEY) || ''; }catch(e){ return ''; } }
+function waDigits(num){
+  let d = String(num||'').replace(/\D/g,'');
+  if(d.startsWith('0')) d = '972' + d.slice(1); // Israeli local form → international
+  return d;
+}
+function sendExamToWhatsApp(examId){
+  const num = getWaNumber();
+  if(!num){ openWaNumberSheet(examId); return; }
+  closeShareMenu();
+  const url = `https://wa.me/${waDigits(num)}?text=${encodeURIComponent(buildExamResultsText(examId))}`;
+  if(!window.open(url, '_blank')) location.href = url;
+}
+function openWaNumberSheet(examId){ UI.shareMenu = null; UI.waNumber = {examId: examId||null, value: getWaNumber()}; render(); }
+function closeWaNumberSheet(){ UI.waNumber = null; render(); }
+function saveWaNumber(){
+  const w = UI.waNumber;
+  const digits = waDigits(w.value);
+  if(digits.length < 11){ showToast('צריך מספר טלפון מלא'); return; }
+  try{ localStorage.setItem(WA_KEY, w.value.trim()); }catch(e){ showToast('לא הצלחתי לשמור את המספר'); return; }
+  UI.waNumber = null;
+  if(w.examId) sendExamToWhatsApp(w.examId); else render();
+}
+function renderWaNumberSheet(){
+  const w = UI.waNumber;
+  if(!w) return '';
+  return `
+  <div class="modal-bg top" onclick="if(event.target===this) closeWaNumberSheet()">
+    <div class="modal-box">
+      <h3>${ic('send')}המספר של מענדי בוואטסאפ</h3>
+      <div class="confirm-text">המספר נשמר רק בטלפון הזה.</div>
+      <input type="tel" inputmode="tel" dir="ltr" class="input-line" placeholder="058-0000000" value="${escapeHtml(w.value)}"
+        oninput="UI.waNumber.value=this.value">
+      <div class="btn-row">
+        <button class="btn-primary" style="flex:1;" onclick="saveWaNumber()">${w.examId?'שמור ושלח':'שמור'}</button>
+        <button class="btn-secondary" style="flex:1;" onclick="closeWaNumberSheet()">ביטול</button>
+      </div>
+    </div>
+  </div>`;
 }
 
 /* ===================== UTIL ===================== */
