@@ -321,7 +321,6 @@ html:not(.app-ready) #app{opacity:0;}
 .nb-box{width:24px;height:24px;border-radius:8px;border:2px solid var(--outline);display:inline-flex;align-items:center;justify-content:center;color:transparent;background:var(--surface-solid);}
 .nb-box .msi{font-size:18px;}
 .nb-check input:checked + .nb-box{background:var(--grad);border-color:transparent;color:#fff;}
-.nb-points{display:inline-flex;align-items:center;gap:6px;font-size:14px;color:var(--text-muted);font-weight:600;}
 .confirm-text{color:var(--text-muted);font-size:14px;line-height:1.6;margin:-6px 0 6px;}
 .btn-danger{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:48px;border-radius:999px;padding:0 24px;
   font-size:15px;font-weight:600;border:none;background:var(--danger-pale);color:var(--danger-ink);font-family:inherit;}
@@ -1156,9 +1155,9 @@ function renderGradesTab(){
     <div class="card">
       ${head}
       ${cls.students.map(s=>`
-        <div class="score-row ${activeExam.notebookPoints?'has-nb':''}">
+        <div class="score-row ${examHasNotebook(activeExam)?'has-nb':''}">
           <span onclick="openStudentGradesModal('${s.id}')" style="cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px;">${escapeHtml(s.name)}</span>
-          ${activeExam.notebookPoints ? renderNotebookCell(activeExam, s.id) : ''}
+          ${examHasNotebook(activeExam) ? renderNotebookCell(activeExam, s.id) : ''}
           <input type="number" min="0" max="100" class="score-input" value="${activeExam.scores[s.id] ?? ''}"
             placeholder="ציון" onchange="setScore('${activeExam.id}','${s.id}', this.value)">
           <input type="text" class="effort-input" value="${escapeHtml(activeExam.effort[s.id]||'')}"
@@ -1382,13 +1381,14 @@ function setScore(examId, studentId, value){
   if(num===undefined) delete ex.scores[studentId]; else ex.scores[studentId]=num;
   saveDB();
 }
+function examHasNotebook(ex){ return !!(ex.notebookPoints || ex.notebook); }
 function hasNotebook(ex, studentId){ return !!(ex.notebook && Object.prototype.hasOwnProperty.call(ex.notebook, studentId)); }
 function renderNotebookCell(ex, studentId){
   const on = hasNotebook(ex, studentId);
   const val = on && ex.notebook[studentId]!=null ? ex.notebook[studentId] : '';
   if(!on) return `<button class="nb-toggle" onclick="toggleNotebook('${ex.id}','${studentId}')">${ic('menu_book','sm')}<small>מחברת</small></button>`;
   /* left empty → back to the button */
-  return `<input type="number" min="0" max="${ex.notebookPoints}" inputmode="numeric" class="score-input nb-input" id="nb-${studentId}" value="${val}"
+  return `<input type="number" min="0" inputmode="numeric" class="score-input nb-input" id="nb-${studentId}" value="${val}"
       placeholder="מחברת" onchange="setNotebookPoints('${ex.id}','${studentId}', this.value)"
       onblur="if(this.value==='') toggleNotebook('${ex.id}','${studentId}')">`;
 }
@@ -1406,8 +1406,8 @@ function setNotebookPoints(examId, studentId, value){
   const ex = getClass().exams.find(e=>e.id===examId);
   if(!ex) return;
   if(!ex.notebook) ex.notebook = {};
-  const max = ex.notebookPoints || 100;
-  ex.notebook[studentId] = value==='' ? null : Math.max(0, Math.min(max, Number(value)));
+  // any number of points, no upper limit
+  ex.notebook[studentId] = value==='' ? null : Math.max(0, Number(value));
   saveDB();
 }
 /* exam result for sharing: the score plus the notebook points, if any */
@@ -1453,10 +1453,11 @@ function defaultExamTitle(){
   const cls = getClass();
   const n = (cls.exams||[]).length + 1;
   const ord = ['ראשון','שני','שלישי','רביעי','חמישי','שישי','שביעי','שמיני','תשיעי','עשירי'][n-1];
-  return `${ord ? 'מבחן '+ord : 'מבחן '+n} ב${cls.name}`;
+  const name = String(cls.name||'').trim().replace(/^כיתה\s+/, ''); // "כיתה עיונא" → "עיונא"
+  return `${ord ? 'מבחן '+ord : 'מבחן '+n} ב${name}`;
 }
 function openAddExamModal(){
-  UI.examDraft = {title:defaultExamTitle(), anchorISO: UI.date, selectedISO: UI.date, notebook:false, notebookPoints:20};
+  UI.examDraft = {title:defaultExamTitle(), anchorISO: UI.date, selectedISO: UI.date, notebook:false};
   render();
 }
 function closeAddExamModal(){ UI.examDraft=null; render(); }
@@ -1474,11 +1475,7 @@ function confirmAddExam(){
   if(!d.title || !d.title.trim()){ showToast('צריך שם למבחן'); return; }
   const cls = getClass();
   const ex = {id:uid(), title:d.title.trim(), date:d.selectedISO, scores:{}, effort:{}};
-  if(d.notebook){
-    const pts = Number(d.notebookPoints);
-    ex.notebookPoints = (isFinite(pts) && pts>0) ? pts : 20;
-    ex.notebook = {};
-  }
+  if(d.notebook) ex.notebook = {};
   cls.exams.push(ex);
   UI.activeExamId = ex.id;
   UI.editingExamId = ex.id;
@@ -1546,9 +1543,6 @@ function renderAddExamModal(){
           <span class="nb-box">${ic('check','sm')}</span>
           יש נקודות על מחברת
         </label>
-        ${d.notebook ? `<span class="nb-points">
-          <input type="number" min="1" max="100" inputmode="numeric" class="score-input" value="${escapeHtml(String(d.notebookPoints))}" oninput="updateExamDraftSilent('notebookPoints', this.value)">
-          נק׳</span>` : ''}
       </div>
       <div class="btn-row">
         <button class="btn-primary" style="flex:1;" onclick="confirmAddExam()">צור מבחן</button>
