@@ -285,6 +285,9 @@ html:not(.app-ready) #app{opacity:0;}
   padding:4px 10px;border-radius:999px;}
 .scores-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px;}
 .scores-head h3{margin:0;}
+.exam-title-input{flex:1;min-width:0;border:1.5px solid var(--border);border-radius:12px;padding:8px 12px;font-size:16px;font-weight:600;
+  color:var(--text);background:var(--surface-solid);}
+.exam-title-input:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-pale);}
 .edit-toggle{flex-shrink:0;height:38px;min-width:38px;border-radius:999px;border:1px solid var(--line);background:var(--surface-solid);
   color:var(--primary);display:inline-flex;align-items:center;justify-content:center;gap:4px;padding:0 9px;font-family:inherit;font-size:14px;font-weight:600;}
 .edit-toggle .msi{font-size:20px;}
@@ -1137,7 +1140,10 @@ function renderGradesTab(){
     const editing = UI.editingExamId===activeExam.id;
     const head = `
       <div class="scores-head">
-        <h3>ציונים והשקעה — ${escapeHtml(activeExam.title)}</h3>
+        ${editing
+          ? `<input type="text" class="exam-title-input" value="${escapeHtml(activeExam.title)}" placeholder="שם המבחן"
+              onchange="setExamTitle('${activeExam.id}', this.value)">`
+          : `<h3>ציונים והשקעה — ${escapeHtml(activeExam.title)}</h3>`}
         ${editing
           ? `<button class="edit-toggle save" onclick="finishExamEdit()">${ic('check')}שמור</button>`
           : `<button class="edit-toggle" onclick="startExamEdit('${activeExam.id}')" title="עריכה">${ic('edit')}</button>`}
@@ -1353,6 +1359,12 @@ function renderScoreView(ex, s){
       </div>
       ${score!=null ? `<span class="sv-score">${score}</span>` : `<span class="sv-score none">לא עשה</span>`}
     </div>`;
+}
+function setExamTitle(examId, value){
+  const ex = getClass().exams.find(e=>e.id===examId);
+  if(!ex || !value.trim()) return; // an exam always keeps a name
+  ex.title = value.trim();
+  saveDB();
 }
 function startExamEdit(id){ UI.editingExamId = id; render(); }
 function finishExamEdit(){
