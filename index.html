@@ -1803,9 +1803,29 @@ function renderGradesTable(){
     <div class="modal-box">
       <h3>${ic('table_view')}כל הציונים</h3>
       <div class="gt-wrap"><table class="gt"><thead><tr><th class="gt-name">תלמיד</th>${head}</tr></thead><tbody>${rows}</tbody></table></div>
-      <div class="btn-row"><button class="btn-secondary" style="width:100%;" onclick="closeGradesTable()">סגור</button></div>
+      <div class="btn-row">
+        <button class="btn-primary" style="flex:1;" onclick="openShareMenu({kind:'gradesTable'})">${ic('share')}שיתוף</button>
+        <button class="btn-secondary" style="flex:1;" onclick="closeGradesTable()">סגור</button>
+      </div>
     </div>
   </div>`;
+}
+function buildGradesTableText(){
+  const cls = getClass();
+  const exams = cls.exams.slice().sort((a,b)=>a.date.localeCompare(b.date));
+  const order = exams.map((ex,i)=>`${i+1}. ${ex.title} (${hebrewDateStr(isoToDate(ex.date))})`).join('\n');
+  const lines = cls.students.map(s=>`*${s.name}:* ${exams.map(ex=>{ const t = examTotal(ex, s.id); return t!=null ? t : 'לא עשה'; }).join(', ')}`);
+  return `כל הציונים — ${cls.name}\n${order}\n\n${lines.join('\n')}`;
+}
+function exportGradesTable(mode, action='share'){
+  const cls = getClass();
+  const exams = cls.exams.slice().sort((a,b)=>a.date.localeCompare(b.date));
+  const head = exams.map(ex=>`<th>${escapeHtml(ex.title)}<br><span style="font-weight:400;">${hebDayLabel(isoToDate(ex.date))} ${hebMonthNameOnly(isoToDate(ex.date))}</span></th>`).join('');
+  const rowsHtml = cls.students.map(s=>`<tr><td>${escapeHtml(s.name)}</td>${exams.map(ex=>{ const t = examTotal(ex, s.id); return `<td>${t!=null ? t : '-'}</td>`; }).join('')}</tr>`).join('');
+  const html = `
+    <h2>כל הציונים — ${escapeHtml(cls.name)}</h2>
+    <table><thead><tr><th>תלמיד</th>${head}</tr></thead><tbody>${rowsHtml}</tbody></table>`;
+  renderExportAndCapture(html, `כל-הציונים-${cls.name}`, mode, action, Math.max(520, 170 + exams.length*80));
 }
 function openStudentGradesModal(studentId){
   UI.detailModal = {type:'studentGrades', studentId, range:['','']};
@@ -2171,10 +2191,11 @@ window.addEventListener('load', ()=>{
 function formatDateHeShort(iso){
   return hebrewDateStr(isoToDate(iso));
 }
-async function renderExportAndCapture(innerHtml, filenameBase, mode, action='share'){
+async function renderExportAndCapture(innerHtml, filenameBase, mode, action='share', width=520){
   if(!await ensureLibs(...(mode==='image' ? ['html2canvas'] : ['html2canvas','jspdf']))) return;
   const tpl = document.getElementById('exportTemplate');
   tpl.innerHTML = innerHtml;
+  tpl.style.width = width+'px'; // wide tables get a wider page
   tpl.style.top = '0px'; tpl.style.right='0px'; tpl.style.zIndex='-1';
   await new Promise(r=>setTimeout(r,50));
   const canvas = await html2canvas(tpl, {scale:2, backgroundColor:'#ffffff'});
@@ -2593,6 +2614,11 @@ function runShare(format, action='share'){
   if(ctx.kind==='examResults'){
     if(format==='text'){ copyText(buildExamResultsText(ctx.examId)); return; }
     exportExamResults(format, ctx.examId, action);
+    return;
+  }
+  if(ctx.kind==='gradesTable'){
+    if(format==='text'){ copyText(buildGradesTableText()); return; }
+    exportGradesTable(format, action);
     return;
   }
   if(ctx.kind==='meetingNotes'){
