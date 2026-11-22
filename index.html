@@ -360,6 +360,20 @@ html:not(.app-ready) #app{opacity:0;}
 .note-textarea.pm-note{field-sizing:content;min-height:48px;padding:10px 12px;border-radius:14px;resize:none;overflow:hidden;}
 .wa-number{text-align:center;font-size:12px;color:var(--text-muted);margin-top:8px;direction:rtl;}
 .wa-number button{border:none;background:none;color:var(--primary);font-weight:600;font-size:12px;padding:4px;}
+.gt-wrap{overflow-x:auto;scrollbar-width:none;margin:0 -4px;border:1px solid var(--line);border-radius:16px;}
+.gt-wrap::-webkit-scrollbar{display:none;}
+.gt{border-collapse:separate;border-spacing:0;font-size:14px;min-width:100%;}
+.gt th,.gt td{padding:10px 8px;text-align:center;border-bottom:1px solid var(--line);white-space:nowrap;}
+.gt tbody tr:last-child td{border-bottom:none;}
+.gt th{background:var(--surface-alt);font-weight:600;vertical-align:bottom;min-width:68px;}
+.gt-title{font-size:12px;white-space:normal;line-height:1.3;max-width:84px;margin:0 auto;}
+.gt-date{font-size:11px;color:var(--text-muted);font-weight:500;margin-top:2px;}
+.gt .gt-name{position:sticky;right:0;z-index:1;background:var(--surface-solid);text-align:right;font-weight:600;white-space:normal;min-width:110px;max-width:130px;
+  box-shadow:-1px 0 0 var(--line);}
+.gt th.gt-name{background:var(--surface-alt);}
+.gt-val{display:inline-flex;align-items:center;justify-content:center;min-width:40px;height:28px;padding:0 8px;border-radius:999px;
+  background:linear-gradient(135deg,#F3F4FF 0%,#ECF7FB 50%,#EBF9F3 100%);color:#1A5363;font-weight:700;font-variant-numeric:tabular-nums;}
+.gt-none{color:var(--text-muted);}
 .hint-text{font-size:12px;color:var(--text-muted);margin-top:10px;line-height:1.6;}
 
 .daily-review-row{background:var(--surface-solid);border:1px solid var(--line);border-radius:18px;padding:14px;margin-bottom:10px;}
@@ -814,7 +828,7 @@ function render(){
   }
   app.innerHTML = renderHeader() + renderTabs() + renderBody()
     + renderDetailModal() + renderShareMenuModal() + renderNoteModal()
-    + renderAddClassModal() + renderAddExamModal() + renderConfirmSheet() + renderWaNumberSheet()
+    + renderAddClassModal() + renderAddExamModal() + renderConfirmSheet() + renderWaNumberSheet() + renderGradesTable()
     + renderSettingsOverlay();
   attachGlobalHandlers();
   if(UI.tab==='attendance' || UI.tab==='summary'){
@@ -1181,6 +1195,7 @@ function renderGradesTab(){
         <span class="name-with-avatar"><span class="mini-avatar" style="background:${avatarColor(s.name)}">${initials(s.name)}</span>${escapeHtml(s.name)}</span>
         <span class="chev">${ic('chevron_left')}</span>
       </div>`).join('')}
+    ${cls.exams.length ? `<div class="btn-row"><button class="btn-secondary" style="width:100%;" onclick="openGradesTable()">${ic('table_view')}טבלת כל הציונים</button></div>` : ''}
   </div>`;
 
   return `
@@ -1771,6 +1786,27 @@ function openMissingExamsModal(studentId){
   UI.detailModal = {type:'missingExams', studentId, range: currentSummaryRange()};
   render();
 }
+/* every student's results (score + notebook) in every exam, oldest exam first */
+function openGradesTable(){ UI.gradesTable = true; render(); }
+function closeGradesTable(){ UI.gradesTable = false; render(); }
+function renderGradesTable(){
+  if(!UI.gradesTable) return '';
+  const cls = getClass();
+  const exams = cls.exams.slice().sort((a,b)=>a.date.localeCompare(b.date));
+  const head = exams.map(ex=>`<th><div class="gt-title">${escapeHtml(ex.title)}</div><div class="gt-date">${hebDayLabel(isoToDate(ex.date))} ${hebMonthNameOnly(isoToDate(ex.date))}</div></th>`).join('');
+  const rows = cls.students.map(s=>`<tr><td class="gt-name">${escapeHtml(s.name)}</td>${exams.map(ex=>{
+    const t = examTotal(ex, s.id);
+    return `<td>${t!=null ? `<span class="gt-val">${t}</span>` : '<span class="gt-none">–</span>'}</td>`;
+  }).join('')}</tr>`).join('');
+  return `
+  <div class="modal-bg" onclick="if(event.target===this) closeGradesTable()">
+    <div class="modal-box">
+      <h3>${ic('table_view')}כל הציונים</h3>
+      <div class="gt-wrap"><table class="gt"><thead><tr><th class="gt-name">תלמיד</th>${head}</tr></thead><tbody>${rows}</tbody></table></div>
+      <div class="btn-row"><button class="btn-secondary" style="width:100%;" onclick="closeGradesTable()">סגור</button></div>
+    </div>
+  </div>`;
+}
 function openStudentGradesModal(studentId){
   UI.detailModal = {type:'studentGrades', studentId, range:['','']};
   render();
@@ -1855,9 +1891,9 @@ function renderDetailModal(){
       </div>`).join('') : `<div class="empty-state">אין מבחנים חסרים.</div>`;
   } else if(d.type==='studentGrades'){
     title = `כל הציונים — ${escapeHtml(student.name)}`;
-    const examsSorted = cls.exams.slice().sort((a,b)=>b.date.localeCompare(a.date));
+    const examsSorted = cls.exams.slice().sort((a,b)=>a.date.localeCompare(b.date));
     bodyHtml = examsSorted.length ? examsSorted.map(ex=>{
-      const score = ex.scores[d.studentId];
+      const score = examTotal(ex, d.studentId); // score + notebook
       const effort = (ex.effort && ex.effort[d.studentId]) || '';
       return `<div class="daily-review-row">
         <div class="drr-name">${escapeHtml(ex.title)}</div>
@@ -2403,9 +2439,9 @@ function exportExamResults(mode, examId, action='share'){
 function buildStudentGradesText(studentId){
   const cls = getClass();
   const student = cls.students.find(s=>s.id===studentId);
-  const examsSorted = cls.exams.slice().sort((a,b)=>b.date.localeCompare(a.date));
+  const examsSorted = cls.exams.slice().sort((a,b)=>a.date.localeCompare(b.date));
   const lines = examsSorted.map(ex=>{
-    const score = ex.scores[studentId];
+    const score = examTotal(ex, studentId);
     const effort = (ex.effort && ex.effort[studentId]) || '';
     const parts = [];
     if(score!=null) parts.push(String(score));
@@ -2417,9 +2453,9 @@ function buildStudentGradesText(studentId){
 function exportStudentGrades(mode, studentId, action='share'){
   const cls = getClass();
   const student = cls.students.find(s=>s.id===studentId);
-  const examsSorted = cls.exams.slice().sort((a,b)=>b.date.localeCompare(a.date));
+  const examsSorted = cls.exams.slice().sort((a,b)=>a.date.localeCompare(b.date));
   const rowsHtml = examsSorted.map(ex=>{
-    const score = ex.scores[studentId];
+    const score = examTotal(ex, studentId);
     const effort = (ex.effort && ex.effort[studentId]) || '';
     return `<tr><td>${escapeHtml(ex.title)}</td><td>${hebrewDateStr(isoToDate(ex.date))}</td><td>${score!=null?score:'לא עשה'}</td><td>${escapeHtml(effort||'-')}</td></tr>`;
   }).join('') || `<tr><td colspan="4">אין עדיין מבחנים</td></tr>`;
